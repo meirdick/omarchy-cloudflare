@@ -82,6 +82,12 @@ you see the output and can stop it.
 Mouse: left click toggles the panel, right click refreshes, middle click opens
 the Workers dashboard.
 
+**Hover** carries what does not deserve permanent space. Over a usage figure it
+shows the exact number and which setting turns that row into a meter; over a
+deployment's `7h` it shows the absolute timestamp. The configuration hint used
+to be a row of its own, which spent a line of every session explaining a
+one-time setting.
+
 ## Settings
 
 Edit the widget's entry in `~/.config/omarchy/shell.json`. Omarchy 4.0.0.alpha
@@ -104,8 +110,8 @@ only way in for now.
 | `errorRatePercent` | 1 | error rate that puts a warning badge on the bar icon |
 
 **The three allowances default to 0, meaning "not set".** Those rows then show
-the real figure with no percentage. Set one to your plan's allowance and that
-row becomes a meter. They are not pre-filled with free-tier numbers on purpose:
+the real figure with no percentage; hover one to see which setting turns it into
+a meter. Set it to your plan's allowance and the row grows a bar. They are not pre-filled with free-tier numbers on purpose:
 a paid account well past the free tier rendered as a red four-figure percentage
 against a 10 GB limit that was never real. A percentage against a guessed denominator is worse
 than no percentage.
