@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "id": "mdick.cloudflare",
+  "name": "Cloudflare",
+  "version": "1.0.0",
+  "author": "mdick85",
+  "license": "MIT",
+  "description": "Cloudflare account resources, deployment status, usage meters, and dashboard token shortcuts in the Omarchy bar.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Cloudflare",
+    "description": "Browse Workers, Pages, R2, D1, KV, Queues and zones; watch deployments; read usage against your plan limits; jump to the dashboard pages that mint API tokens.",
+    "category": "Cloud",
+    "aliases": [
+      "cloudflare",
+      "cf",
+      "workers"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 60,
+      "analyticsIntervalSec": 900,
+      "projectsRoot": "",
+      "deployRows": 8,
+      "overviewDeployRows": 3,
+      "workerRequestsPerDay": 0,
+      "r2StorageGb": 0,
+      "d1RowsReadPerDay": 0,
+      "errorRatePercent": 1
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Resource refresh (seconds)",
+        "description": "How often the resource lists and deployment status are re-fetched.",
+        "min": 15,
+        "max": 3600,
+        "step": 15,
+        "defaultValue": 60
+      },
+      {
+        "key": "analyticsIntervalSec",
+        "type": "integer",
+        "label": "Analytics refresh (seconds)",
+        "description": "How often the GraphQL usage query runs. Analytics lag by minutes, so a long interval costs nothing.",
+        "min": 60,
+        "max": 7200,
+        "step": 60,
+        "defaultValue": 900
+      },
+      {
+        "key": "projectsRoot",
+        "type": "path",
+        "label": "Projects folder",
+        "description": "Scanned three levels deep for wrangler.toml/jsonc/json so deploy and rollback know where each Worker lives. Defaults to ~/Projects.",
+        "defaultValue": ""
+      },
+      {
+        "key": "deployRows",
+        "type": "integer",
+        "label": "Deployments in a type view",
+        "min": 3,
+        "max": 30,
+        "step": 1,
+        "defaultValue": 8
+      },
+      {
+        "key": "overviewDeployRows",
+        "type": "integer",
+        "label": "Deployments on the overview",
+        "description": "The overview lists only the most recent few; open Workers or Pages for the rest.",
+        "min": 1,
+        "max": 10,
+        "step": 1,
+        "defaultValue": 3
+      },
+      {
+        "key": "workerRequestsPerDay",
+        "type": "integer",
+        "label": "Worker requests/day allowance",
+        "description": "Denominator for the requests meter. 0 shows the raw count with no percentage; 100000 is the free plan.",
+        "min": 0,
+        "max": 1000000000,
+        "step": 1000,
+        "defaultValue": 0
+      },
+      {
+        "key": "r2StorageGb",
+        "type": "integer",
+        "label": "R2 storage allowance (GB)",
+        "description": "0 shows the stored size with no percentage.",
+        "min": 0,
+        "max": 100000,
+        "step": 1,
+        "defaultValue": 0
+      },
+      {
+        "key": "d1RowsReadPerDay",
+        "type": "integer",
+        "label": "D1 rows read/day allowance",
+        "description": "0 shows the raw count with no percentage.",
+        "min": 0,
+        "max": 100000000000,
+        "step": 1000,
+        "defaultValue": 0
+      },
+      {
+        "key": "errorRatePercent",
+        "type": "integer",
+        "label": "Worker error rate warning (%)",
+        "description": "The bar icon shows a warning badge when any Worker's 24h error rate crosses this.",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "defaultValue": 1
+      }
+    ]
+  }
+}
