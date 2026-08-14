@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "mdick.cloudflare",
   "name": "Cloudflare",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "mdick85",
   "license": "MIT",
   "description": "Cloudflare account resources, deployment status, usage meters, and dashboard token shortcuts in the Omarchy bar.",
