@@ -55,6 +55,12 @@ Item {
   property var queues: []
   property var zones: []
 
+  // --- live URLs -----------------------------------------------------------
+  property string accountSubdomain: ""     // the account's *.workers.dev prefix
+  property var workerDomains: ({})         // script name -> custom hostname
+  property var workerDotDev: ({})          // script name -> workers.dev enabled
+  property var _dotDevQueue: []
+
   // --- analytics -----------------------------------------------------------
   property var analytics: emptyAnalytics()
 
@@ -88,7 +94,7 @@ Item {
 
   readonly property bool busy: refreshing || analyticsRefreshing || refreshingToken
   readonly property int failedDeploys: Model.failedDeployCount(
-    Model.buildDeploys(workers, pages, deployRows))
+    Model.buildDeploys(workers, pages, deployRows, null))
   readonly property bool warning: !loggedIn || failedDeploys > 0 || analytics.workersOverErrorRate > 0
 
   // Manifest `defaults` are never merged into the injected settings by the
@@ -122,7 +128,9 @@ Item {
     return {
       workers: workers, pages: pages, buckets: buckets, databases: databases,
       namespaces: namespaces, queues: queues, zones: zones,
-      errorRateThreshold: errorRatePercent
+      errorRateThreshold: errorRatePercent,
+      accountSubdomain: accountSubdomain, workerDomains: workerDomains,
+      workerDotDev: workerDotDev
     }
   }
 
@@ -309,6 +317,9 @@ Item {
   Request { id: kvReq }
   Request { id: queuesReq }
   Request { id: zonesReq }
+  Request { id: domainsReq }
+  Request { id: subdomainReq }
+  Request { id: dotDevReq }
   Request { id: graphqlReq }
   Request { id: purgeReq }
 
@@ -361,13 +372,26 @@ Item {
     if (root.accountId === "") { resolveAccount(); return }
 
     root.lastError = ""
-    beginSweep(7)
+    beginSweep(8)
     workersReq.send(Api.workersUrl(accountId), "", handle("workers", function(r) { root.workers = asArray(r) }))
     pagesReq.send(Api.pagesUrl(accountId), "", handle("pages", function(r) { root.pages = asArray(r) }))
     r2Req.send(Api.r2Url(accountId), "", handle("r2", function(r) { root.buckets = r && r.buckets ? asArray(r.buckets) : [] }))
     d1Req.send(Api.d1Url(accountId), "", handle("d1", function(r) { root.databases = asArray(r) }))
     kvReq.send(Api.kvUrl(accountId), "", handle("kv", function(r) { root.namespaces = asArray(r) }))
     queuesReq.send(Api.queuesUrl(accountId), "", handle("queues", function(r) { root.queues = asArray(r) }))
+    // One call covers every custom domain in the account; the per-script
+    // workers.dev probe below only has to cover what is left over.
+    domainsReq.send(Api.workersDomainsUrl(accountId), "", handle("domains", function(r) {
+      var map = {}
+      var list = asArray(r)
+      for (var i = 0; i < list.length; i++) {
+        var service = String(list[i].service || "")
+        var hostname = String(list[i].hostname || "")
+        if (service && hostname && !map[service]) map[service] = hostname
+      }
+      root.workerDomains = map
+      root.queueDotDevProbes()
+    }))
     zonesReq.send(Api.zonesUrl(), "", handle("zones", function(r) {
       root.zones = asArray(r)
       // Zone ids are the analytics query's filter, so a zone list that arrives
@@ -391,6 +415,58 @@ Item {
       // Resolving the account is a prerequisite, not the refresh itself.
       Qt.callLater(function() { root.refresh() })
     }))
+  }
+
+  // ------------------------------------------------------- live URL probing
+
+  // Whether a script answers on <name>.<subdomain>.workers.dev has no bulk
+  // endpoint, so it costs one request per script. Scripts with a custom domain
+  // never need asking, and an answer is cached for the session — enablement is
+  // not something that changes minute to minute. The queue is drained one at a
+  // time so this never competes with the refresh sweep for bandwidth.
+  function queueDotDevProbes() {
+    if (root.accountId === "") return
+    if (root.accountSubdomain === "" && !subdomainReq.running) {
+      subdomainReq.send(Api.workersSubdomainUrl(root.accountId), "", function(exitCode, text) {
+        if (exitCode !== 0) return
+        var env = Api.parseEnvelope(text)
+        if (env.ok && env.result) root.accountSubdomain = String(env.result.subdomain || "")
+        root.queueDotDevProbes()
+      })
+      return
+    }
+    if (root.accountSubdomain === "") return
+
+    var pending = []
+    for (var i = 0; i < root.workers.length; i++) {
+      var name = String(root.workers[i].id || "")
+      if (!name) continue
+      if (root.workerDomains[name]) continue          // custom domain wins anyway
+      if (root.workerDotDev[name] !== undefined) continue  // already known
+      pending.push(name)
+    }
+    root._dotDevQueue = pending
+    root.drainDotDevQueue()
+  }
+
+  function drainDotDevQueue() {
+    if (dotDevReq.running) return
+    if (!root._dotDevQueue || root._dotDevQueue.length === 0) return
+    var queue = root._dotDevQueue.slice()
+    var name = queue.shift()
+    root._dotDevQueue = queue
+    dotDevReq.send(Api.scriptSubdomainUrl(root.accountId, name), "", function(exitCode, text) {
+      var enabled = false
+      if (exitCode === 0) {
+        var env = Api.parseEnvelope(text)
+        if (env.ok && env.result) enabled = env.result.enabled === true
+      }
+      var next = {}
+      for (var key in root.workerDotDev) next[key] = root.workerDotDev[key]
+      next[name] = enabled
+      root.workerDotDev = next
+      Qt.callLater(function() { root.drainDotDevQueue() })
+    })
   }
 
   // ------------------------------------------------------------- analytics

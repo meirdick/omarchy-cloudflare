@@ -187,9 +187,23 @@ Panel {
     cf.copyToClipboard(value, row.name || "value")
   }
 
+  // The live site, as distinct from the dashboard page that manages it. Both
+  // are useful and they are not the same destination, so they get their own key.
+  function openLive(row) {
+    if (!row || !row.liveUrl) {
+      cf.flashStatus("No live URL for this row")
+      return
+    }
+    cf.openUrl(row.liveUrl)
+    close()
+  }
+
   function copyUrl(row) {
     if (!row || row.kind === "usage" || row.kind === "empty" || row.kind === "note" || row.kind === "group") return
-    cf.copyToClipboard(Api.dashUrlFor(row), "dashboard link")
+    // A live URL is the one you would paste to someone; the dashboard link is
+    // only useful when there is no site behind the row.
+    if (row.liveUrl) cf.copyToClipboard(row.liveUrl, row.liveHost)
+    else cf.copyToClipboard(Api.dashUrlFor(row), "dashboard link")
   }
 
   function workerNameFor(row) {
@@ -309,6 +323,11 @@ Panel {
           queues: cf.queues.length, zones: cf.zones.length
         },
         projectDirs: Object.keys(cf.projectDirs).length,
+        accountSubdomain: cf.accountSubdomain,
+        customDomains: Object.keys(cf.workerDomains).length,
+        dotDevResolved: Object.keys(cf.workerDotDev).length,
+        dotDevEnabled: Object.keys(cf.workerDotDev).filter(function(k) { return cf.workerDotDev[k] }).length,
+        liveRows: root.rows.filter(function(r) { return !!r.liveHost }).length,
         lastError: cf.lastError,
         rows: root.rows.length,
         route: root.route,
@@ -396,6 +415,7 @@ Panel {
         else if (t === "r") { cf.refresh(); cf.refreshAnalytics() }
         else if (t === "c") root.copyIdentifier(root.currentRow)
         else if (t === "u") root.copyUrl(root.currentRow)
+        else if (t === "o") root.openLive(root.currentRow)
         else if (t === "t") root.tailCurrent()
         else if (t === "D") root.requestAction("deploy")
         else if (t === "R") root.requestAction("rollback")
@@ -483,7 +503,7 @@ Panel {
         // lone "D" at the end of the first line.
         text: root.route === "" && root.filter === ""
           ? "j/k move   l open   ⏎ select   / search   r refresh"
-          : "j/k move   h back   ⏎ open   / search   c copy   u link\n"
+          : "j/k move   h back   ⏎ dash   o site   / search   c copy   u link\n"
             + "t tail   D deploy   R rollback   P purge"
         color: root.dim
         font.family: root.fontFamily
@@ -624,6 +644,11 @@ Panel {
       ? (isDeploy ? Model.glyphFor(row.target === "pages" ? "pages" : "worker")
         : (isGroup ? Model.glyphFor(row.target) : Model.glyphFor(row.kind)))
       : ""
+    // A row that serves a site gets a visit button at its right edge. Printing
+    // the hostname instead cost the row its figure, and read as inert text
+    // rather than something you can go to.
+    readonly property bool hasLive: !!(row && row.liveHost)
+    readonly property real visitInset: hasLive ? Style.space(24) : 0
     readonly property string trailing: {
       if (!row) return ""
       if (isDeploy) return Model.relativeTime(row.whenMs, root.nowMs)
@@ -645,7 +670,7 @@ Panel {
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       anchors.leftMargin: Style.space(8)
-      anchors.rightMargin: Style.space(8)
+      anchors.rightMargin: Style.space(8) + entry.visitInset
       spacing: Style.space(8)
 
       Text {
@@ -714,6 +739,23 @@ Panel {
         text: entry.isDeploy ? Model.absoluteTime(entry.row.whenMs) : ""
         fontFamily: root.fontFamily
       }
+    }
+
+    // Declared after the row-wide MouseArea so it wins the click: the row opens
+    // the dashboard, this opens the site. Two destinations, two targets.
+    PanelActionButton {
+      visible: entry.hasLive
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(3)
+      anchors.verticalCenter: parent.verticalCenter
+      iconText: "\uf08e"
+      tooltipText: entry.row ? "Open " + entry.row.liveHost : ""
+      foreground: root.dim
+      hoverColor: root.foreground
+      fontFamily: root.fontFamily
+      fontSize: Style.font.bodySmall
+      size: Style.space(20)
+      onClicked: root.openLive(entry.row)
     }
   }
 

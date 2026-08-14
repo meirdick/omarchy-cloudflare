@@ -123,6 +123,58 @@ function typeLabel(kind) {
 
 var RESOURCE_KINDS = ["worker", "pages", "r2", "d1", "kv", "queue", "zone"]
 
+// ---------------------------------------------------------------- live URLs
+
+// The address the thing actually serves on, mirroring what the Cloudflare
+// dashboard prints under each application name.
+//
+// A custom domain always wins over the platform hostname: it is what the site
+// is really called, and it is what you would paste to someone.
+//
+// `<name>.<subdomain>.workers.dev` is only offered when the account has told us
+// that script has the subdomain route enabled. Assuming it would hand out dead
+// links — a third of this account's Workers have it switched off.
+function workerLiveHost(name, state) {
+  var custom = state.workerDomains ? state.workerDomains[name] : ""
+  if (custom) return String(custom)
+  if (state.accountSubdomain && state.workerDotDev && state.workerDotDev[name] === true)
+    return name + "." + state.accountSubdomain + ".workers.dev"
+  return ""
+}
+
+function pagesLiveHost(project) {
+  var domains = Array.isArray(project.domains) ? project.domains : []
+  for (var i = 0; i < domains.length; i++) {
+    var host = String(domains[i] || "")
+    if (host && host.indexOf(".pages.dev") < 0) return host
+  }
+  return String(project.subdomain || (domains.length ? domains[0] : ""))
+}
+
+function hostToUrl(host) {
+  var h = String(host || "").trim()
+  if (!h) return ""
+  return /^https?:\/\//.test(h) ? h : "https://" + h
+}
+
+// Name -> hostname for the two kinds that have deployments, so a deployment row
+// can offer the same link as the resource row it refers to.
+function buildLiveHosts(state) {
+  var worker = {}
+  var pages = {}
+  var i
+  for (i = 0; i < state.workers.length; i++) {
+    var wn = String(state.workers[i].id || "")
+    var wh = workerLiveHost(wn, state)
+    if (wh) worker[wn] = wh
+  }
+  for (i = 0; i < state.pages.length; i++) {
+    var ph = pagesLiveHost(state.pages[i])
+    if (ph) pages[String(state.pages[i].name || "")] = ph
+  }
+  return { worker: worker, pages: pages }
+}
+
 // ---------------------------------------------------------------- deployments
 
 // Workers and Pages report deployment state through different shapes. Both are
@@ -131,12 +183,13 @@ var RESOURCE_KINDS = ["worker", "pages", "r2", "d1", "kv", "queue", "zone"]
 // A Worker's script record carries no build status — only when it last changed
 // — so its status is always "deployed". Pages projects embed the real pipeline
 // stage, which is where a failure actually shows up.
-function buildDeploys(workers, pages, limit) {
+function buildDeploys(workers, pages, limit, liveHosts) {
   var rows = []
   var i
 
   for (i = 0; i < workers.length; i++) {
     var w = workers[i]
+    var dhost = liveHosts ? String(liveHosts.worker[String(w.id || "")] || "") : ""
     rows.push({
       kind: "deploy",
       target: "worker",
@@ -144,6 +197,7 @@ function buildDeploys(workers, pages, limit) {
       status: "deployed",
       failed: false,
       via: String(w.last_deployed_from || ""),
+      liveHost: dhost, liveUrl: hostToUrl(dhost),
       whenMs: parseTime(w.modified_on || w.created_on)
     })
   }
@@ -153,6 +207,7 @@ function buildDeploys(workers, pages, limit) {
     var latest = p.latest_deployment
     var stage = latest && latest.latest_stage ? latest.latest_stage : null
     var status = stage ? String(stage.status || "") : "none"
+    var dphost = liveHosts ? String(liveHosts.pages[String(p.name || "")] || "") : ""
     rows.push({
       kind: "deploy",
       target: "pages",
@@ -161,6 +216,7 @@ function buildDeploys(workers, pages, limit) {
       failed: status === "failure" || status === "canceled",
       building: status === "active" || status === "idle",
       via: stage ? String(stage.name || "") : "",
+      liveHost: dphost, liveUrl: hostToUrl(dphost),
       whenMs: latest ? parseTime(latest.created_on) : 0
     })
   }
@@ -281,8 +337,10 @@ function resourcesOf(kind, state, analytics) {
       var wname = String(w.id || "")
       var wstats = analytics.perWorker[wname]
       var routes = Array.isArray(w.routes) ? w.routes.length : 0
+      var whost = workerLiveHost(wname, state)
       rows.push({
         kind: "worker", name: wname, id: wname,
+        liveHost: whost, liveUrl: hostToUrl(whost),
         weight: wstats ? wstats.requests : -1,
         detail: wstats
           ? formatCount(wstats.requests) + " req/24h" + (wstats.errors > 0 ? "  ·  " + formatCount(wstats.errors) + " err" : "")
@@ -298,10 +356,12 @@ function resourcesOf(kind, state, analytics) {
       var stage = p.latest_deployment && p.latest_deployment.latest_stage
         ? p.latest_deployment.latest_stage : null
       var pfailed = !!(stage && (stage.status === "failure" || stage.status === "canceled"))
+      var phost = pagesLiveHost(p)
       rows.push({
         kind: "pages", name: String(p.name || ""), id: String(p.id || ""),
+        liveHost: phost, liveUrl: hostToUrl(phost),
         weight: p.latest_deployment ? parseTime(p.latest_deployment.created_on) : 0,
-        detail: String(p.subdomain || ""),
+        detail: phost,
         alarming: pfailed,
         reason: pfailed ? "last build " + stage.status : ""
       })
@@ -355,6 +415,7 @@ function resourcesOf(kind, state, analytics) {
       var zactive = String(z.status || "") === "active"
       rows.push({
         kind: "zone", name: String(z.name || ""), id: zid,
+        liveHost: String(z.name || ""), liveUrl: hostToUrl(z.name),
         weight: zstats ? zstats.requests : -1,
         detail: zstats
           ? formatCount(zstats.requests) + " req/7d  ·  " + formatBytes(zstats.bytes)
@@ -463,7 +524,7 @@ function buildOverview(state, analytics, options) {
   // glance, and the rest are one keypress away under Workers or Pages.
   groups.push({
     title: "RECENT ACTIVITY",
-    rows: buildDeploys(state.workers, state.pages, options.overviewDeployRows)
+    rows: buildDeploys(state.workers, state.pages, options.overviewDeployRows, buildLiveHosts(state))
   })
 
   groups.push({ title: "USAGE", rows: buildUsage(analytics, options.limits) })

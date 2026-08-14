@@ -110,6 +110,17 @@ function r2Url(acc) { return API + "/accounts/" + acc + "/r2/buckets?per_page=10
 function d1Url(acc) { return API + "/accounts/" + acc + "/d1/database?per_page=100" }
 function kvUrl(acc) { return API + "/accounts/" + acc + "/storage/kv/namespaces?per_page=100" }
 function queuesUrl(acc) { return API + "/accounts/" + acc + "/queues" }
+
+// Live URLs. Custom domains come back for the whole account in one call, which
+// is the cheap half of the problem.
+function workersDomainsUrl(acc) { return API + "/accounts/" + acc + "/workers/domains" }
+function workersSubdomainUrl(acc) { return API + "/accounts/" + acc + "/workers/subdomain" }
+// The expensive half: whether <name>.<subdomain>.workers.dev is actually served
+// is per script, with no bulk endpoint. A script with it disabled would
+// otherwise be given a link that 404s, so this has to be asked for each one.
+function scriptSubdomainUrl(acc, name) {
+  return API + "/accounts/" + acc + "/workers/scripts/" + encodeURIComponent(name) + "/subdomain"
+}
 function graphqlUrl() { return API + "/graphql" }
 function purgeUrl(zoneId) { return API + "/zones/" + zoneId + "/purge_cache" }
 

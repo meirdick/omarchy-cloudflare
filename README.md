@@ -46,6 +46,7 @@ seeing at a glance, and the rest is one keypress away.
 | Recent activity | the three most recent deploys |
 | Usage | Worker requests and errors (24h), R2 storage, D1 rows read, zone traffic (7d) |
 | Resources | one row per type: count plus an aggregate — `Workers 24 · 6.4k req/24h ›` |
+| Live sites | a ↗ button on every Worker, Pages project and zone that serves one |
 | Create a token | dashboard shortcuts: account, user, R2/S3, AI Gateway, Turnstile |
 
 "Needs attention" is absent when nothing is wrong, so its presence is the signal.
@@ -58,16 +59,29 @@ you left it.
 **Search** — `/` searches every resource of every type from anywhere, so you
 never have to know which category something is in to reach it.
 
+**Visit** — anything that serves a site gets a ↗ button at the right edge, and
+`o` does the same from the keyboard. The row itself still opens the Cloudflare
+dashboard; the button opens the site. Two destinations, two targets.
+
+The address behind that button is resolved, not guessed. A custom domain wins
+over the platform hostname, so a Worker shows `os.example.com` rather than its
+`workers.dev` name and a Pages project shows its own domain rather than
+`*.pages.dev`. `<name>.<subdomain>.workers.dev` is only offered when the account
+confirms that script has the subdomain route enabled — a third of the Workers on
+the account this was built against have it switched off, and offering those a
+link would hand out a 404. Workers with neither simply have no button.
+
 ## Keys
 
 | Key | Action |
 |---|---|
 | `j` / `k`, arrows | move the cursor |
 | `l` / Enter | open a resource type; on a leaf row, open it in the dashboard |
+| `o` | open the live site (rows that serve one) |
 | `h` / Escape | back out one level, then close the panel |
 | `/` | search every resource; Escape leaves search |
 | `c` | copy the row's id |
-| `u` | copy the row's dashboard link |
+| `u` | copy the live URL if the row has one, otherwise the dashboard link |
 | `r` | refresh now |
 | `t` | tail a Worker's logs in a floating terminal |
 | `D` | deploy (Worker or Pages project with a local checkout) |
