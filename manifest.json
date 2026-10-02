@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "mdick.cloudflare",
   "name": "Cloudflare",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "mdick85",
   "license": "MIT",
-  "description": "Cloudflare account resources, deployment status, usage meters, and dashboard token shortcuts in the Omarchy bar.",
+  "description": "Your Cloudflare account in the bar: what is broken, the last 24 hours of traffic, every resource, and links to live sites.",
   "kinds": [
     "bar-widget"
   ],
@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "Cloudflare",
-    "description": "Browse Workers, Pages, R2, D1, KV, Queues and zones; watch deployments; read usage against your plan limits; jump to the dashboard pages that mint API tokens.",
+    "description": "See problems, analytics and recent deploys. Open any domain, Worker, Pages project, bucket or database in the dashboard or on its live site.",
     "category": "Cloud",
     "aliases": [
       "cloudflare",
@@ -24,6 +24,7 @@
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
+      "accountId": "",
       "refreshIntervalSec": 60,
       "analyticsIntervalSec": 900,
       "projectsRoot": "",
@@ -36,10 +37,17 @@
     },
     "schema": [
       {
+        "key": "accountId",
+        "type": "string",
+        "label": "Account ID",
+        "description": "Which account to show. Empty means the first one. Press a in the panel to switch.",
+        "defaultValue": ""
+      },
+      {
         "key": "refreshIntervalSec",
         "type": "integer",
         "label": "Resource refresh (seconds)",
-        "description": "How often the resource lists and deployment status are re-fetched.",
+        "description": "How often to load resources and deploys.",
         "min": 15,
         "max": 3600,
         "step": 15,
@@ -49,7 +57,7 @@
         "key": "analyticsIntervalSec",
         "type": "integer",
         "label": "Analytics refresh (seconds)",
-        "description": "How often the GraphQL usage query runs. Analytics lag by minutes, so a long interval costs nothing.",
+        "description": "How often to load analytics.",
         "min": 60,
         "max": 7200,
         "step": 60,
@@ -59,13 +67,13 @@
         "key": "projectsRoot",
         "type": "path",
         "label": "Projects folder",
-        "description": "Scanned three levels deep for wrangler.toml/jsonc/json so deploy and rollback know where each Worker lives. Defaults to ~/Projects.",
+        "description": "Where to look for wrangler projects, for deploy and roll back. Empty means ~/Projects.",
         "defaultValue": ""
       },
       {
         "key": "deployRows",
         "type": "integer",
-        "label": "Deployments in a type view",
+        "label": "Deploys in a type view",
         "min": 3,
         "max": 30,
         "step": 1,
@@ -74,8 +82,7 @@
       {
         "key": "overviewDeployRows",
         "type": "integer",
-        "label": "Deployments on the overview",
-        "description": "The overview lists only the most recent few; open Workers or Pages for the rest.",
+        "label": "Deploys on the overview",
         "min": 1,
         "max": 10,
         "step": 1,
@@ -84,8 +91,8 @@
       {
         "key": "workerRequestsPerDay",
         "type": "integer",
-        "label": "Worker requests/day allowance",
-        "description": "Denominator for the requests meter. 0 shows the raw count with no percentage; 100000 is the free plan.",
+        "label": "Worker invocations per day allowance",
+        "description": "Adds a bar to the invocations card. 0 means not set.",
         "min": 0,
         "max": 1000000000,
         "step": 1000,
@@ -95,7 +102,7 @@
         "key": "r2StorageGb",
         "type": "integer",
         "label": "R2 storage allowance (GB)",
-        "description": "0 shows the stored size with no percentage.",
+        "description": "Adds a bar to the R2 card. 0 means not set.",
         "min": 0,
         "max": 100000,
         "step": 1,
@@ -104,8 +111,8 @@
       {
         "key": "d1RowsReadPerDay",
         "type": "integer",
-        "label": "D1 rows read/day allowance",
-        "description": "0 shows the raw count with no percentage.",
+        "label": "D1 rows read per day allowance",
+        "description": "Shown on the D1 row. 0 means not set.",
         "min": 0,
         "max": 100000000000,
         "step": 1000,
@@ -115,7 +122,7 @@
         "key": "errorRatePercent",
         "type": "integer",
         "label": "Worker error rate warning (%)",
-        "description": "The bar icon shows a warning badge when any Worker's 24h error rate crosses this.",
+        "description": "A Worker above this error rate needs attention.",
         "min": 1,
         "max": 100,
         "step": 1,
