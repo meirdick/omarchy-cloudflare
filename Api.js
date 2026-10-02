@@ -101,7 +101,9 @@ function parseGraphql(text) {
 // ---------------------------------------------------------------- endpoints
 
 function accountsUrl() { return API + "/accounts?per_page=50" }
-function zonesUrl() { return API + "/zones?per_page=50" }
+// Filtered by account. Unfiltered, this returns every zone the token can see,
+// so a second account showed the first account's domains.
+function zonesUrl(acc) { return API + "/zones?per_page=50&account.id=" + encodeURIComponent(acc) }
 function workersUrl(acc) { return API + "/accounts/" + acc + "/workers/scripts" }
 // The Pages list endpoint rejects `per_page` outright ("Invalid list options
 // provided"), unlike every other list endpoint here. It must stay bare.
@@ -126,32 +128,43 @@ function purgeUrl(zoneId) { return API + "/zones/" + zoneId + "/purge_cache" }
 
 // ---------------------------------------------------------------- graphql
 
-function isoDay(ms) { return new Date(ms).toISOString().slice(0, 10) }
-function isoStamp(ms) { return new Date(ms).toISOString().slice(0, 19) + "Z" }
+function hourStamp(ms) { return new Date(Math.floor(ms / 3600000) * 3600000).toISOString().slice(0, 19) + "Z" }
 
-// One query covering every dataset the panel meters. Batched because each
-// GraphQL round trip costs about as much as the whole REST sweep.
+// One query for everything the panel shows. Windows end at the last full hour,
+// so the current 24 hours and the 24 hours before them have the same length.
 //
-// `zoneTag` is selected alongside the zone's groups: the zones array comes back
-// in an unspecified order, so correlating by position would silently attribute
-// one domain's traffic to another.
+// `hourly` feeds the sparklines and the change against the previous 24 hours.
+// CPU time P90 cannot be added up from hourly values, so it is asked for twice
+// as a whole-window figure (`cpuNow`, `cpuPrev`).
+//
+// `zoneTag` is selected with each zone's groups: the zones come back in no
+// fixed order, and matching by position would give one domain another's traffic.
 function usageQuery(accountId, zoneIds, nowMs) {
-  var dayAgo = nowMs - 24 * 60 * 60 * 1000
-  var weekAgo = nowMs - 7 * 24 * 60 * 60 * 1000
+  var end = hourStamp(nowMs)
+  var mid = hourStamp(nowMs - 24 * 3600000)
+  var start = hourStamp(nowMs - 48 * 3600000)
+  var cur = '{datetime_geq:"' + mid + '",datetime_lt:"' + end + '"}'
+  var both = '{datetime_geq:"' + start + '",datetime_lt:"' + end + '"}'
+  var prev = '{datetime_geq:"' + start + '",datetime_lt:"' + mid + '"}'
+
   var q = 'query{viewer{'
   q += 'accounts(filter:{accountTag:"' + accountId + '"}){'
-  q += 'workersInvocationsAdaptive(limit:200,filter:{datetime_geq:"' + isoStamp(dayAgo) + '",datetime_leq:"' + isoStamp(nowMs) + '"})'
-  q += '{sum{requests errors subrequests}dimensions{scriptName}}'
-  q += 'r2StorageAdaptiveGroups(limit:100,filter:{datetime_geq:"' + isoStamp(dayAgo) + '",datetime_leq:"' + isoStamp(nowMs) + '"})'
+  q += 'scripts:workersInvocationsAdaptive(limit:500,filter:' + cur + ')'
+  q += '{sum{requests errors}dimensions{scriptName}}'
+  q += 'hourly:workersInvocationsAdaptive(limit:100,filter:' + both + ',orderBy:[datetimeHour_ASC])'
+  q += '{sum{requests errors}quantiles{cpuTimeP90}dimensions{datetimeHour}}'
+  q += 'cpuNow:workersInvocationsAdaptive(limit:1,filter:' + cur + '){quantiles{cpuTimeP90}}'
+  q += 'cpuPrev:workersInvocationsAdaptive(limit:1,filter:' + prev + '){quantiles{cpuTimeP90}}'
+  q += 'r2StorageAdaptiveGroups(limit:200,filter:' + cur + ')'
   q += '{max{payloadSize objectCount}dimensions{bucketName}}'
-  q += 'd1AnalyticsAdaptiveGroups(limit:100,filter:{datetime_geq:"' + isoStamp(dayAgo) + '",datetime_leq:"' + isoStamp(nowMs) + '"})'
-  q += '{sum{readQueries writeQueries rowsRead rowsWritten}dimensions{databaseId}}'
+  q += 'd1AnalyticsAdaptiveGroups(limit:200,filter:' + cur + ')'
+  q += '{sum{rowsRead rowsWritten}dimensions{databaseId}}'
   q += '}'
   if (zoneIds && zoneIds.length > 0) {
     var tags = zoneIds.map(function(id) { return '"' + id + '"' }).join(",")
     q += 'zones(filter:{zoneTag_in:[' + tags + ']}){zoneTag '
-    q += 'httpRequests1dGroups(limit:60,filter:{date_geq:"' + isoDay(weekAgo) + '",date_leq:"' + isoDay(nowMs) + '"})'
-    q += '{dimensions{date}sum{requests bytes cachedRequests threats}}'
+    q += 'httpRequests1hGroups(limit:100,filter:' + both + ',orderBy:[datetime_ASC])'
+    q += '{dimensions{datetime}sum{requests cachedRequests bytes threats}}'
     q += '}'
   }
   q += '}}'

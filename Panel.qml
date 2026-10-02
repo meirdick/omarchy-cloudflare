@@ -42,15 +42,22 @@ Panel {
   // that makes a drill-down feel like a maze.
   property int overviewCursor: 0
 
+  // Starred resources, as "<kind>:<id>". Saved in this widget's entry in
+  // shell.json, like the tray saves its pinned items.
+  property var starred: []
+  function syncStarred() { starred = settings && Array.isArray(settings.starred) ? settings.starred.slice() : [] }
+  onSettingsChanged: syncStarred()
+  Component.onCompleted: syncStarred()
+
   readonly property var rows: Model.buildRows(cf.resourceState(), cf.analytics, {
     deployRows: cf.deployRows,
     overviewDeployRows: cf.overviewDeployRows,
     limits: cf.limits,
     filter: root.filter,
     route: root.route,
+    starred: root.starred,
     tokenRows: Api.tokenShortcuts()
   })
-  readonly property var sectionStarts: Model.sectionStarts(rows)
   readonly property var currentRow: rows.length > 0 && cursorIndex >= 0 && cursorIndex < rows.length
     ? rows[cursorIndex] : null
 
@@ -58,7 +65,6 @@ Panel {
   // says how to get back, so the drill-down never leaves you unsure where you
   // are or how to leave.
   readonly property string heroTitle: {
-    if (filtering || filter !== "") return "Search"
     if (route !== "") return Model.typeLabel(route)
     return cf.accountName !== "" ? cf.accountName : "Cloudflare"
   }
@@ -68,15 +74,15 @@ Panel {
     if (!cf.loggedIn) return "Not logged in — run wrangler login"
     if (cf.lastError !== "") return cf.lastError
     if (cf.accountId === "") return "Resolving account"
-    if (filtering || filter !== "") return rows.length + " matching  ·  esc to leave search"
-    if (route !== "") return rows.length + " " + Model.typeLabel(route).toLowerCase() + "  ·  h or esc to go back"
+    if (filter !== "") return (rows.length === 1 && rows[0].kind === "empty" ? 0 : rows.length) + " matching"
+    if (route !== "") return cf.accountName
     var parts = []
+    if (cf.zones.length) parts.push(cf.zones.length + " domains")
     if (cf.workers.length) parts.push(cf.workers.length + " workers")
     if (cf.pages.length) parts.push(cf.pages.length + " pages")
     if (cf.buckets.length) parts.push(cf.buckets.length + " buckets")
-    if (cf.zones.length) parts.push(cf.zones.length + " zones")
-    if (parts.length === 0) return "No resources"
-    return parts.join("  ·  ")
+    if (parts.length === 0) return cf.refreshing ? "Loading" : "No resources"
+    return parts.join("  \u00b7  ")
   }
 
   readonly property string heroDetail: {
@@ -172,8 +178,7 @@ Panel {
     // Enter on a group opens it rather than the dashboard: the whole point of
     // the overview is that the obvious action on "Workers · 27" is to see them.
     if (row.kind === "group") { enterCurrent(); return }
-    if (row.kind === "usage") { cf.refreshAnalytics(); return }
-    if (row.kind === "empty" || row.kind === "note") return
+    if (row.kind === "empty" || row.kind === "tiles") return
     cf.openUrl(Api.dashUrlFor(row))
     close()
   }
@@ -182,7 +187,7 @@ Panel {
 
   function copyIdentifier(row) {
     if (!row) return
-    if (row.kind === "usage" || row.kind === "empty" || row.kind === "note" || row.kind === "group") return
+    if (row.kind === "tiles" || row.kind === "empty" || row.kind === "group") return
     var value = row.kind === "token" ? row.url : (row.id || row.name)
     cf.copyToClipboard(value, row.name || "value")
   }
@@ -199,11 +204,49 @@ Panel {
   }
 
   function copyUrl(row) {
-    if (!row || row.kind === "usage" || row.kind === "empty" || row.kind === "note" || row.kind === "group") return
+    if (!row || row.kind === "tiles" || row.kind === "empty" || row.kind === "group") return
     // A live URL is the one you would paste to someone; the dashboard link is
     // only useful when there is no site behind the row.
     if (row.liveUrl) cf.copyToClipboard(row.liveUrl, row.liveHost)
     else cf.copyToClipboard(Api.dashUrlFor(row), "dashboard link")
+  }
+
+  // Save one value into this widget's entry in shell.json. Used only for
+  // things you ask for: a star, or a chosen account.
+  function persist(key, value) {
+    if (!root.bar || !root.bar.shell || typeof root.bar.shell.updateEntryInline !== "function") return false
+    var entry = { id: root.moduleName }
+    for (var k in settings) if (k !== "id") entry[k] = settings[k]
+    // An empty value removes the key, so unstarring everything leaves no trace.
+    if (value === "" || (Array.isArray(value) && value.length === 0)) delete entry[key]
+    else entry[key] = value
+    root.bar.shell.updateEntryInline(root.moduleName, entry)
+    return true
+  }
+
+  function toggleStarCurrent() {
+    var row = currentRow
+    var key = Model.starKey(row)
+    if (!key) { cf.flashStatus("Stars are for resources"); return }
+    starred = Model.toggleStar(starred, key)
+    persist("starred", starred)
+    // Starred items move to the top of a type view. Keep the cursor on the
+    // same resource, or the next key acts on whatever took its place.
+    for (var i = 0; i < rows.length; i++) {
+      if (Model.starKey(rows[i]) === key) { cursorIndex = i; break }
+    }
+    cf.flashStatus((starred.indexOf(key) >= 0 ? "Starred " : "Removed star from ") + row.name)
+  }
+
+  function switchAccount() {
+    var id = cf.nextAccountId()
+    if (id === "") { cf.flashStatus("This login has one account"); return }
+    cf.selectAccount(id)
+    persist("accountId", id)
+    route = ""
+    cursorIndex = 0
+    overviewCursor = 0
+    cf.flashStatus("Account: " + cf.accountName)
   }
 
   function workerNameFor(row) {
@@ -277,6 +320,7 @@ Panel {
     route = ""
     filter = ""
     filtering = false
+    filterField.text = ""
     pendingAction = null
     confirm.opened = false
     nowMs = Date.now()
@@ -315,6 +359,17 @@ Panel {
         credentialPaths: cf.wranglerConfigPaths,
         expiresInSec: Math.round((cf.tokenExpiresMs - Date.now()) / 1000),
         accountId: cf.accountId,
+        // The card's place on screen, in the logical units grim -g takes, so a
+        // preview can capture the card and nothing else.
+        card: root.opened ? {
+          x: Math.round(panel.cardOrigin.x), y: Math.round(panel.cardOrigin.y),
+          w: panel.contentWidth, h: panel.contentHeight,
+          screen: panel.screen ? panel.screen.name : ""
+        } : null,
+        accountName: cf.accountName,
+        accounts: cf.accounts.length,
+        starred: root.starred,
+        tiles: (root.rows.filter(function(r) { return r.kind === "tiles" })[0] || { tiles: [] }).tiles.length,
         refreshing: cf.refreshing,
         analyticsLoaded: cf.analytics.loaded,
         counts: {
@@ -335,8 +390,7 @@ Panel {
         filter: root.filter,
         cursorIndex: root.cursorIndex,
         cursorSection: root.currentRow ? root.currentRow.section : "",
-        cursorName: root.currentRow ? String(root.currentRow.name || root.currentRow.title || "") : "",
-        sectionStarts: root.sectionStarts
+        cursorName: root.currentRow ? String(root.currentRow.name || root.currentRow.title || "") : ""
       })
     }
   }
@@ -412,6 +466,8 @@ Panel {
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) {
         if (t === "/") { root.filtering = true; Qt.callLater(function() { filterField.forceActiveFocus() }) }
+        else if (t === "s") root.toggleStarCurrent()
+        else if (t === "a") root.switchAccount()
         else if (t === "r") { cf.refresh(); cf.refreshAnalytics() }
         else if (t === "c") root.copyIdentifier(root.currentRow)
         else if (t === "u") root.copyUrl(root.currentRow)
@@ -464,18 +520,30 @@ Panel {
           wrapMode: Text.WordWrap
         }
 
+        // Always on screen, as in the dashboard. `/` or a click puts the
+        // cursor in it; Escape leaves it.
         TextField {
           id: filterField
-          visible: root.filtering
-          height: visible ? implicitHeight : 0
           width: parent.width
-          placeholderText: "Filter resources"
+          placeholderText: Model.GLYPH_SEARCH + "  Search every resource"
           foreground: root.foreground
           font.family: root.fontFamily
+          onActiveFocusChanged: root.filtering = activeFocus
           onTextChanged: {
             root.filter = text
             root.cursorIndex = 0
             root.cursorActive = true
+          }
+
+          Text {
+            visible: !filterField.activeFocus && filterField.text === ""
+            anchors.right: parent.right
+            anchors.rightMargin: Style.spacing.controlPaddingX
+            anchors.verticalCenter: parent.verticalCenter
+            text: "/"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
           }
           Keys.onPressed: function(event) {
             if (event.key === Qt.Key_Escape) {
@@ -499,12 +567,10 @@ Panel {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        // Explicit break rather than word wrap: letting it wrap orphaned a
-        // lone "D" at the end of the first line.
+        // One line for each view. The full list of keys is in the README.
         text: root.route === "" && root.filter === ""
-          ? "j/k move   l open   ⏎ select   / search   r refresh"
-          : "j/k move   h back   ⏎ dash   o site   / search   c copy   u link\n"
-            + "t tail   D deploy   R rollback   P purge"
+          ? "j/k move   l open   / search   s star" + (cf.accounts.length > 1 ? "   a account" : "") + "   r refresh"
+          : "\u23ce dashboard   o site   s star   c copy   t tail   D deploy   h back"
         color: root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
@@ -576,10 +642,9 @@ Panel {
             Loader {
               id: rowLoader
               width: parent.width
-              sourceComponent: rowItem.modelData.kind === "usage"
-                ? usageComponent
-                : ((rowItem.modelData.kind === "empty" || rowItem.modelData.kind === "note")
-                  ? emptyComponent : entryComponent)
+              sourceComponent: rowItem.modelData.kind === "tiles"
+                ? tilesComponent
+                : (rowItem.modelData.kind === "empty" ? emptyComponent : entryComponent)
             }
 
             // Bindings rather than assignment in onLoaded: the ListView
@@ -649,11 +714,13 @@ Panel {
     // rather than something you can go to.
     readonly property bool hasLive: !!(row && row.liveHost)
     readonly property real visitInset: hasLive ? Style.space(24) : 0
+    readonly property bool isStarred: !!(row && row.starred)
     readonly property string trailing: {
       if (!row) return ""
       if (isDeploy) return Model.relativeTime(row.whenMs, root.nowMs)
       if (isGroup) return row.count + "  \uf105"  // count, then chevron-right
       if (isToken) return "\uf08e"                // external-link
+      if (isStarred) return Model.GLYPH_STAR
       return ""
     }
     readonly property bool alarming: row ? (row.alarming === true || row.failed === true) : false
@@ -703,7 +770,6 @@ Panel {
           visible: text !== ""
           text: {
             if (!entry.row) return ""
-            if (entry.isDeploy) return entry.row.status + (entry.row.via ? "  ·  " + entry.row.via : "")
             if (entry.isToken) return String(entry.row.hint || "")
             return String(entry.row.detail || "")
           }
@@ -717,7 +783,7 @@ Panel {
       Text {
         id: trailingText
         text: entry.trailing
-        color: root.dim
+        color: entry.isStarred && !entry.isDeploy && !entry.isGroup ? Color.accent : root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         anchors.verticalCenter: parent.verticalCenter
@@ -759,124 +825,179 @@ Panel {
     }
   }
 
-  // A usage figure, with a bar when there is a real allowance to divide by and
-  // a plain readout when there is not. Inventing a denominator for zone
-  // traffic would make the bar say something Cloudflare never told us.
-  component UsageRow: CursorSurface {
-    id: usage
+  // The analytics figures as small cards, three per line, in the style of the
+  // dashboard's analytics page: name, value, change against the day before,
+  // and the last 24 hours as a line.
+  component TilesRow: Item {
+    id: tilesRow
     property var row: null
     property int rowIndex: -1
+    readonly property var tiles: row && row.tiles ? row.tiles : []
+    readonly property real gap: Style.space(6)
 
-    readonly property bool metered: !!(row && row.metered)
-    readonly property bool alarming: row && row.percent >= 0.9
+    implicitHeight: tileGrid.implicitHeight
 
-    hasCursor: root.cursorActive && root.cursorIndex === rowIndex
+    Grid {
+      id: tileGrid
+      width: parent.width
+      columns: 3
+      spacing: tilesRow.gap
+
+      Repeater {
+        model: tilesRow.tiles
+        Tile {
+          required property var modelData
+          width: (tileGrid.width - 2 * tilesRow.gap) / 3
+          tile: modelData
+        }
+      }
+    }
+  }
+
+  component Tile: CursorSurface {
+    id: tileCard
+    property var tile: null
+    readonly property bool alarming: !!(tile && tile.alarming)
+
+    bordered: true
     foreground: root.foreground
-    fill: root.hoverFill
-    currentFill: root.selectedFill
-    implicitHeight: usageInner.implicitHeight + Style.spacing.lg
+    implicitHeight: tileInner.implicitHeight + Style.space(14)
 
     Column {
-      id: usageInner
+      id: tileInner
       anchors.left: parent.left
       anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      anchors.leftMargin: Style.space(8)
-      anchors.rightMargin: Style.space(8)
-      spacing: usage.metered ? Style.space(5) : 0
+      anchors.top: parent.top
+      anchors.margins: Style.space(7)
+      spacing: Style.space(3)
 
-      // Unmetered figures are one line, label left and value right. Stacking
-      // the value under the label cost five rows of height on the overview and
-      // pushed the resource groups — the actual navigation — off screen.
-      Item {
+      Text {
         width: parent.width
-        implicitHeight: Math.max(usageLabel.implicitHeight, usageValue.implicitHeight)
+        text: tileCard.tile ? tileCard.tile.title : ""
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        elide: Text.ElideRight
+      }
+
+      Row {
+        width: parent.width
+        spacing: Style.space(6)
 
         Text {
-          id: usageLabel
-          text: usage.row ? String(usage.row.title || "") : ""
-          color: root.foreground
+          id: tileValue
+          text: tileCard.tile ? tileCard.tile.value : ""
+          color: tileCard.alarming ? root.urgent : root.foreground
           font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          elide: Text.ElideRight
-          anchors.left: parent.left
-          anchors.right: usageValue.left
-          anchors.rightMargin: Style.spacing.sm
-          anchors.verticalCenter: parent.verticalCenter
+          font.pixelSize: Style.font.title
+          font.bold: true
         }
 
         Text {
-          id: usageValue
-          text: {
-            if (!usage.row) return ""
-            if (usage.metered) return usage.row.percent >= 0 ? Math.round(usage.row.percent * 100) + "%" : ""
-            return String(usage.row.detail || "")
-          }
-          color: usage.alarming ? root.urgent : (usage.metered ? root.foreground : root.dim)
+          anchors.baseline: tileValue.baseline
+          width: parent.width - tileValue.width - parent.spacing
+          text: tileCard.tile ? tileCard.tile.delta : ""
+          color: tileCard.tile && tileCard.tile.worse ? root.urgent : root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
+          elide: Text.ElideRight
         }
       }
 
-      Item {
-        visible: usage.metered
+      Text {
+        visible: text !== ""
         width: parent.width
-        height: visible ? meterThickness : 0
-        readonly property real meterThickness: Math.max(Style.space(4), Math.round(Style.spacing.controlHeight * 0.14))
+        text: tileCard.tile ? String(tileCard.tile.note || "") : ""
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        elide: Text.ElideRight
+      }
+
+      Sparkline {
+        visible: !!(tileCard.tile && tileCard.tile.points && tileCard.tile.points.length > 1)
+        width: parent.width
+        height: visible ? Style.space(18) : 0
+        points: tileCard.tile ? tileCard.tile.points : []
+        stroke: root.foreground
+      }
+
+      // With an allowance set, a bar shows how much of it is used.
+      Item {
+        visible: !!(tileCard.tile && tileCard.tile.meter >= 0)
+        width: parent.width
+        height: visible ? Style.space(4) : 0
 
         Rectangle {
-          id: meterTrack
+          id: tileTrack
           anchors.fill: parent
           radius: height / 2
           color: root.track
         }
 
         Rectangle {
-          anchors.left: meterTrack.left
-          anchors.verticalCenter: meterTrack.verticalCenter
-          height: meterTrack.height
-          radius: meterTrack.radius
-          width: meterTrack.width * Util.clamp(usage.row ? usage.row.percent : 0, 0, 1)
-          color: usage.alarming ? root.urgent : root.foreground
-
-          Behavior on width {
-            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
-          }
+          height: tileTrack.height
+          radius: tileTrack.radius
+          width: tileTrack.width * Util.clamp(tileCard.tile ? tileCard.tile.meter : 0, 0, 1)
+          color: tileCard.alarming ? root.urgent : root.foreground
         }
-      }
-
-      // Only the metered layout still needs a line under the bar; the
-      // unmetered one already shows its value on the title row.
-      Text {
-        width: parent.width
-        visible: usage.metered && text !== ""
-        height: visible ? implicitHeight : 0
-        text: usage.row ? String(usage.row.detail || "") : ""
-        color: root.dim
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.caption
-        elide: Text.ElideRight
       }
     }
 
     MouseArea {
-      id: usageHover
+      id: tileHover
       anchors.fill: parent
       hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onEntered: root.setCursor(usage.rowIndex)
-      onClicked: cf.refreshAnalytics()
 
-      // The exact figure and the "set X for a meter" note live here rather
-      // than in a row of their own. Both are things you want once, not every
-      // time you open the panel.
       PanelToolTip {
-        visible: usageHover.containsMouse && text !== ""
-        text: usage.row ? String(usage.row.tooltip || "") : ""
+        visible: tileHover.containsMouse && text !== ""
+        text: tileCard.tile ? tileCard.tile.tooltip : ""
         fontFamily: root.fontFamily
       }
+    }
+  }
+
+  // The last 24 hours as a thin line with a light fill. Scaled to its own
+  // maximum: it shows the shape of the day, not a value you can read off.
+  component Sparkline: Canvas {
+    id: spark
+    property var points: []
+    property color stroke: root.foreground
+
+    onPointsChanged: requestPaint()
+    onStrokeChanged: requestPaint()
+    onWidthChanged: requestPaint()
+    onHeightChanged: requestPaint()
+
+    onPaint: {
+      var ctx = getContext("2d")
+      ctx.reset()
+      var pts = spark.points || []
+      var n = pts.length
+      if (n < 2 || width <= 0 || height <= 0) return
+      var max = 0
+      for (var i = 0; i < n; i++) max = Math.max(max, Number(pts[i]) || 0)
+      var top = 1
+      var bottom = height - 1
+      function x(i) { return (i / (n - 1)) * width }
+      function y(v) { return max > 0 ? bottom - ((Number(v) || 0) / max) * (bottom - top) : bottom }
+
+      ctx.beginPath()
+      ctx.moveTo(0, bottom)
+      for (i = 0; i < n; i++) ctx.lineTo(x(i), y(pts[i]))
+      ctx.lineTo(width, bottom)
+      ctx.closePath()
+      ctx.fillStyle = Qt.rgba(spark.stroke.r, spark.stroke.g, spark.stroke.b, 0.12)
+      ctx.fill()
+
+      ctx.beginPath()
+      for (i = 0; i < n; i++) {
+        if (i === 0) ctx.moveTo(x(i), y(pts[i]))
+        else ctx.lineTo(x(i), y(pts[i]))
+      }
+      ctx.strokeStyle = Qt.rgba(spark.stroke.r, spark.stroke.g, spark.stroke.b, 0.75)
+      ctx.lineWidth = 1.2
+      ctx.stroke()
     }
   }
 
@@ -901,6 +1022,6 @@ Panel {
   }
 
   Component { id: entryComponent; EntryRow {} }
-  Component { id: usageComponent; UsageRow {} }
+  Component { id: tilesComponent; TilesRow {} }
   Component { id: emptyComponent; EmptyRow {} }
 }

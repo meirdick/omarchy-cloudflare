@@ -5,9 +5,8 @@ import qs.Commons
 import "Api.js" as Api
 import "Model.js" as Model
 
-// Everything stateful for the Cloudflare widget: credentials, the fetch
-// pipeline, and the actions. The panel reads properties off this and never
-// talks to the network itself.
+// All state for the widget: credentials, the account, fetching, and actions.
+// The panel reads properties from here and never calls the network itself.
 Item {
   id: root
   visible: false
@@ -43,8 +42,17 @@ Item {
   property bool refreshingToken: false
 
   // --- account -------------------------------------------------------------
+  // A login can reach more than one account. The `accountId` setting picks
+  // one; the panel writes it when you switch with `a`. Without it, the first
+  // account is used.
+  property var accounts: []
   property string accountId: ""
   property string accountName: ""
+  readonly property string preferredAccountId: String(setting("accountId", "") || "")
+  onPreferredAccountIdChanged: {
+    if (root.preferredAccountId !== "" && root.preferredAccountId !== root.accountId)
+      root.selectAccount(root.preferredAccountId)
+  }
 
   // --- resources -----------------------------------------------------------
   property var workers: []
@@ -62,7 +70,7 @@ Item {
   property var _dotDevQueue: []
 
   // --- analytics -----------------------------------------------------------
-  property var analytics: emptyAnalytics()
+  property var analytics: Model.emptyAnalytics()
 
   // --- status --------------------------------------------------------------
   property bool refreshing: false
@@ -110,20 +118,7 @@ Item {
     return Math.max(min, Math.min(max, n))
   }
 
-  function emptyAnalytics() {
-    return {
-      loaded: false,
-      workerRequests: 0, workerErrors: 0,
-      r2Bytes: 0, r2Objects: 0,
-      d1RowsRead: 0, d1RowsWritten: 0,
-      zoneRequests: 0, zoneBytes: 0, zoneThreats: 0,
-      workersOverErrorRate: 0,
-      perWorker: ({}), perBucket: ({}), perDatabase: ({}), perZone: ({})
-    }
-  }
-
-  // Snapshot handed to Model.buildRows. Kept as a function rather than a
-  // property so the panel controls when the ~70-row list is rebuilt.
+  // The input for Model.buildRows.
   function resourceState() {
     return {
       workers: workers, pages: pages, buckets: buckets, databases: databases,
@@ -330,24 +325,45 @@ Item {
     root.refreshing = true
   }
 
+  // Set when an account switch arrives during a sweep. The sweep finishes,
+  // then a new one starts for the new account.
+  property bool _refreshAgain: false
+
   function endOne() {
     root._pending = Math.max(0, root._pending - 1)
     if (root._pending === 0) {
       root.refreshing = false
       root.lastRefreshMs = Date.now()
+      if (root._refreshAgain) {
+        root._refreshAgain = false
+        Qt.callLater(function() { root.refresh(); root.refreshAnalytics() })
+      }
     }
   }
 
   // Uniform completion handling. `label` names the endpoint in any error the
   // panel surfaces; `assign` receives the unwrapped result array.
-  function handle(label, assign) {
+  // `quiet` lists error codes that mean "none here"; `onQuiet` handles them.
+  // A reply for an account that is no longer selected is dropped: it would
+  // put one account's resources under another's name.
+  function handle(label, assign, quiet, onQuiet) {
+    var askedFor = root.accountId
     return function(exitCode, text, errorText) {
+      if (askedFor !== root.accountId) {
+        root.endOne()
+        return
+      }
       if (exitCode !== 0) {
         root.lastError = label + ": " + (errorText || "curl exited " + exitCode)
         root.endOne()
         return
       }
       var env = Api.parseEnvelope(text)
+      if (!env.ok && quiet && quiet.indexOf(env.code) >= 0) {
+        if (onQuiet) onQuiet()
+        root.endOne()
+        return
+      }
       if (!env.ok) {
         if (root.isAuthFailure(env)) {
           // wrangler owns the fix; applyCredentials restarts the sweep once the
@@ -375,7 +391,9 @@ Item {
     beginSweep(8)
     workersReq.send(Api.workersUrl(accountId), "", handle("workers", function(r) { root.workers = asArray(r) }))
     pagesReq.send(Api.pagesUrl(accountId), "", handle("pages", function(r) { root.pages = asArray(r) }))
-    r2Req.send(Api.r2Url(accountId), "", handle("r2", function(r) { root.buckets = r && r.buckets ? asArray(r.buckets) : [] }))
+    // An account without R2 answers 10042. That means no buckets, not a fault.
+    r2Req.send(Api.r2Url(accountId), "", handle("r2", function(r) { root.buckets = r && r.buckets ? asArray(r.buckets) : [] },
+      [10042], function() { root.buckets = [] }))
     d1Req.send(Api.d1Url(accountId), "", handle("d1", function(r) { root.databases = asArray(r) }))
     kvReq.send(Api.kvUrl(accountId), "", handle("kv", function(r) { root.namespaces = asArray(r) }))
     queuesReq.send(Api.queuesUrl(accountId), "", handle("queues", function(r) { root.queues = asArray(r) }))
@@ -392,7 +410,7 @@ Item {
       root.workerDomains = map
       root.queueDotDevProbes()
     }))
-    zonesReq.send(Api.zonesUrl(), "", handle("zones", function(r) {
+    zonesReq.send(Api.zonesUrl(accountId), "", handle("zones", function(r) {
       root.zones = asArray(r)
       // Zone ids are the analytics query's filter, so a zone list that arrives
       // after the query would leave zone traffic empty until the next tick.
@@ -410,11 +428,40 @@ Item {
         root.lastError = "no Cloudflare account on this token"
         return
       }
-      root.accountId = String(list[0].id || "")
-      root.accountName = String(list[0].name || "")
-      // Resolving the account is a prerequisite, not the refresh itself.
+      root.accounts = list.map(function(a) { return { id: String(a.id || ""), name: String(a.name || "") } })
+      var chosen = root.accounts[0]
+      for (var i = 0; i < root.accounts.length; i++)
+        if (root.accounts[i].id === root.preferredAccountId) chosen = root.accounts[i]
+      root.accountId = chosen.id
+      root.accountName = chosen.name
       Qt.callLater(function() { root.refresh() })
     }))
+  }
+
+  // Switch to another account. Everything fetched for the old one is dropped
+  // first, so nothing from one account shows under the other.
+  function selectAccount(id) {
+    var next = null
+    for (var i = 0; i < root.accounts.length; i++) if (root.accounts[i].id === id) next = root.accounts[i]
+    if (!next || next.id === root.accountId) return false
+    root.accountId = next.id
+    root.accountName = next.name
+    root.workers = []; root.pages = []; root.buckets = []; root.databases = []
+    root.namespaces = []; root.queues = []; root.zones = []
+    root.accountSubdomain = ""; root.workerDomains = ({}); root.workerDotDev = ({}); root._dotDevQueue = []
+    root.analytics = Model.emptyAnalytics()
+    root.lastError = ""
+    if (root.refreshing) root._refreshAgain = true
+    else Qt.callLater(function() { root.refresh() })
+    return true
+  }
+
+  // The account after the current one, for the `a` key.
+  function nextAccountId() {
+    if (root.accounts.length < 2) return ""
+    for (var i = 0; i < root.accounts.length; i++)
+      if (root.accounts[i].id === root.accountId) return root.accounts[(i + 1) % root.accounts.length].id
+    return root.accounts[0].id
   }
 
   // ------------------------------------------------------- live URL probing
@@ -427,8 +474,9 @@ Item {
   function queueDotDevProbes() {
     if (root.accountId === "") return
     if (root.accountSubdomain === "" && !subdomainReq.running) {
+      var askedFor = root.accountId
       subdomainReq.send(Api.workersSubdomainUrl(root.accountId), "", function(exitCode, text) {
-        if (exitCode !== 0) return
+        if (exitCode !== 0 || askedFor !== root.accountId) return
         var env = Api.parseEnvelope(text)
         if (env.ok && env.result) root.accountSubdomain = String(env.result.subdomain || "")
         root.queueDotDevProbes()
@@ -455,7 +503,9 @@ Item {
     var queue = root._dotDevQueue.slice()
     var name = queue.shift()
     root._dotDevQueue = queue
+    var askedFor = root.accountId
     dotDevReq.send(Api.scriptSubdomainUrl(root.accountId, name), "", function(exitCode, text) {
+      if (askedFor !== root.accountId) return
       var enabled = false
       if (exitCode === 0) {
         var env = Api.parseEnvelope(text)
@@ -483,8 +533,10 @@ Item {
     }
 
     root.analyticsRefreshing = true
+    var askedFor = root.accountId
     graphqlReq.send(Api.graphqlUrl(), Api.usageQuery(root.accountId, zoneIds, Date.now()), function(exitCode, text, errorText) {
       root.analyticsRefreshing = false
+      if (askedFor !== root.accountId) return
       if (exitCode !== 0) {
         root.lastError = "analytics: " + (errorText || "curl exited " + exitCode)
         return
@@ -494,87 +546,8 @@ Item {
         root.lastError = "analytics: " + parsed.error
         return
       }
-      root.analytics = root.reduceAnalytics(parsed.data)
+      root.analytics = Model.reduceAnalytics(parsed.data, root.errorRatePercent, Date.now())
     })
-  }
-
-  // Collapse the GraphQL response into per-resource maps plus account totals.
-  function reduceAnalytics(data) {
-    var next = emptyAnalytics()
-    next.loaded = true
-
-    var viewer = data.viewer || {}
-    var accounts = Array.isArray(viewer.accounts) ? viewer.accounts : []
-    var account = accounts.length > 0 ? accounts[0] : {}
-    var i
-
-    var invocations = Array.isArray(account.workersInvocationsAdaptive) ? account.workersInvocationsAdaptive : []
-    for (i = 0; i < invocations.length; i++) {
-      var inv = invocations[i]
-      var name = String(inv.dimensions ? inv.dimensions.scriptName : "")
-      var requests = Number(inv.sum ? inv.sum.requests : 0) || 0
-      var errors = Number(inv.sum ? inv.sum.errors : 0) || 0
-      next.workerRequests += requests
-      next.workerErrors += errors
-      var rate = requests > 0 ? (errors / requests) * 100 : 0
-      next.perWorker[name] = { requests: requests, errors: errors, errorRate: rate }
-      if (rate >= root.errorRatePercent) next.workersOverErrorRate++
-    }
-
-    // r2StorageAdaptiveGroups reports a running maximum per bucket rather than
-    // a delta, so the account total is the sum of the per-bucket maxima.
-    var storage = Array.isArray(account.r2StorageAdaptiveGroups) ? account.r2StorageAdaptiveGroups : []
-    for (i = 0; i < storage.length; i++) {
-      var s = storage[i]
-      var bucket = String(s.dimensions ? s.dimensions.bucketName : "")
-      var bytes = Number(s.max ? s.max.payloadSize : 0) || 0
-      var objects = Number(s.max ? s.max.objectCount : 0) || 0
-      var priorBucket = next.perBucket[bucket]
-      if (priorBucket) {
-        priorBucket.bytes = Math.max(priorBucket.bytes, bytes)
-        priorBucket.objects = Math.max(priorBucket.objects, objects)
-      } else {
-        next.perBucket[bucket] = { bytes: bytes, objects: objects }
-      }
-    }
-    for (var b in next.perBucket) {
-      next.r2Bytes += next.perBucket[b].bytes
-      next.r2Objects += next.perBucket[b].objects
-    }
-
-    var d1 = Array.isArray(account.d1AnalyticsAdaptiveGroups) ? account.d1AnalyticsAdaptiveGroups : []
-    for (i = 0; i < d1.length; i++) {
-      var d = d1[i]
-      var dbId = String(d.dimensions ? d.dimensions.databaseId : "")
-      var rowsRead = Number(d.sum ? d.sum.rowsRead : 0) || 0
-      var rowsWritten = Number(d.sum ? d.sum.rowsWritten : 0) || 0
-      next.d1RowsRead += rowsRead
-      next.d1RowsWritten += rowsWritten
-      var priorDb = next.perDatabase[dbId] || { rowsRead: 0, rowsWritten: 0 }
-      priorDb.rowsRead += rowsRead
-      priorDb.rowsWritten += rowsWritten
-      next.perDatabase[dbId] = priorDb
-    }
-
-    var zoneList = Array.isArray(viewer.zones) ? viewer.zones : []
-    for (i = 0; i < zoneList.length; i++) {
-      var z = zoneList[i]
-      var tag = String(z.zoneTag || "")
-      var groups = Array.isArray(z.httpRequests1dGroups) ? z.httpRequests1dGroups : []
-      var agg = { requests: 0, bytes: 0, threats: 0 }
-      for (var g = 0; g < groups.length; g++) {
-        var sum = groups[g].sum || {}
-        agg.requests += Number(sum.requests) || 0
-        agg.bytes += Number(sum.bytes) || 0
-        agg.threats += Number(sum.threats) || 0
-      }
-      next.perZone[tag] = agg
-      next.zoneRequests += agg.requests
-      next.zoneBytes += agg.bytes
-      next.zoneThreats += agg.threats
-    }
-
-    return next
   }
 
   // ------------------------------------------------------------- project scan
@@ -744,7 +717,8 @@ Item {
     repeat: true
     running: root.refreshing || root.analyticsRefreshing
     onTriggered: {
-      var slots = [accountsReq, workersReq, pagesReq, r2Req, d1Req, kvReq, queuesReq, zonesReq, graphqlReq]
+      var slots = [accountsReq, workersReq, pagesReq, r2Req, d1Req, kvReq, queuesReq, zonesReq,
+                   domainsReq, subdomainReq, dotDevReq, graphqlReq]
       for (var i = 0; i < slots.length; i++) if (slots[i].running) slots[i].running = false
       root._pending = 0
       root.refreshing = false

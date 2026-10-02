@@ -1,0 +1,1748 @@
+{
+ "data": {
+  "viewer": {
+   "accounts": [
+    {
+     "scripts": [
+      {
+       "dimensions": {
+        "scriptName": "api-gateway"
+       },
+       "sum": {
+        "requests": 3000,
+        "errors": 60
+       }
+      },
+      {
+       "dimensions": {
+        "scriptName": "image-resizer"
+       },
+       "sum": {
+        "requests": 600,
+        "errors": 12
+       }
+      },
+      {
+       "dimensions": {
+        "scriptName": "webhook-relay"
+       },
+       "sum": {
+        "requests": 0,
+        "errors": 0
+       }
+      }
+     ],
+     "hourly": [
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T12:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T13:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T14:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T15:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T16:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T17:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T18:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T19:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T20:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T21:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T22:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-11T23:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T00:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T01:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T02:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T03:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T04:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T05:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T06:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T07:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T08:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T09:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T10:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T11:00:00Z"
+       },
+       "sum": {
+        "requests": 100,
+        "errors": 1
+       },
+       "quantiles": {
+        "cpuTimeP90": 9000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T12:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T13:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T14:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T15:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T16:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T17:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T18:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T19:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T20:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T21:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T22:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-12T23:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T00:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T01:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T02:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T03:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T04:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T05:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T06:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T07:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T08:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T09:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T10:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      },
+      {
+       "dimensions": {
+        "datetimeHour": "2026-08-13T11:00:00Z"
+       },
+       "sum": {
+        "requests": 150,
+        "errors": 3
+       },
+       "quantiles": {
+        "cpuTimeP90": 8000
+       }
+      }
+     ],
+     "cpuNow": [
+      {
+       "quantiles": {
+        "cpuTimeP90": 8134
+       }
+      }
+     ],
+     "cpuPrev": [
+      {
+       "quantiles": {
+        "cpuTimeP90": 8259
+       }
+      }
+     ],
+     "r2StorageAdaptiveGroups": [
+      {
+       "dimensions": {
+        "bucketName": "media-uploads"
+       },
+       "max": {
+        "payloadSize": 2000,
+        "objectCount": 20
+       }
+      },
+      {
+       "dimensions": {
+        "bucketName": "media-uploads"
+       },
+       "max": {
+        "payloadSize": 3000,
+        "objectCount": 30
+       }
+      },
+      {
+       "dimensions": {
+        "bucketName": "nightly-backups"
+       },
+       "max": {
+        "payloadSize": 5000,
+        "objectCount": 5
+       }
+      }
+     ],
+     "d1AnalyticsAdaptiveGroups": [
+      {
+       "dimensions": {
+        "databaseId": "db-sessions"
+       },
+       "sum": {
+        "rowsRead": 700,
+        "rowsWritten": 20
+       }
+      },
+      {
+       "dimensions": {
+        "databaseId": "db-sessions"
+       },
+       "sum": {
+        "rowsRead": 300,
+        "rowsWritten": 10
+       }
+      }
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "zoneTag": "zone-example-com",
+     "httpRequests1hGroups": [
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T12:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T13:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T14:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T15:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T16:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T17:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T18:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T19:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T20:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T21:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T22:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T23:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T00:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T01:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T02:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T03:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T04:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T05:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T06:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T07:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T08:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T09:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T10:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T11:00:00Z"
+       },
+       "sum": {
+        "requests": 200,
+        "cachedRequests": 30,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T12:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T13:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T14:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T15:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T16:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T17:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T18:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T19:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T20:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T21:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T22:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T23:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T00:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T01:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T02:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T03:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T04:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T05:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T06:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T07:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T08:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T09:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T10:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T11:00:00Z"
+       },
+       "sum": {
+        "requests": 250,
+        "cachedRequests": 25,
+        "bytes": 1000,
+        "threats": 0
+       }
+      }
+     ]
+    },
+    {
+     "zoneTag": "zone-example-dev",
+     "httpRequests1hGroups": [
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T12:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T13:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T14:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T15:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T16:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T17:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T18:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T19:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T20:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T21:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T22:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-11T23:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T00:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T01:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T02:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T03:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T04:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T05:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T06:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T07:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T08:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T09:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T10:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T11:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T12:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T13:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T14:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T15:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T16:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T17:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T18:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T19:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T20:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T21:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T22:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-12T23:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T00:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T01:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T02:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T03:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T04:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T05:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T06:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T07:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T08:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T09:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T10:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      },
+      {
+       "dimensions": {
+        "datetime": "2026-08-13T11:00:00Z"
+       },
+       "sum": {
+        "requests": 50,
+        "cachedRequests": 0,
+        "bytes": 1000,
+        "threats": 0
+       }
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

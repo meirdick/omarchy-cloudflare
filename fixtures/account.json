@@ -1,0 +1,102 @@
+{
+ "accountSubdomain": "acme",
+ "workerDomains": {
+  "api-gateway": "api.example.com"
+ },
+ "workerDotDev": {
+  "image-resizer": true,
+  "webhook-relay": false
+ },
+ "errorRateThreshold": 1,
+ "workers": [
+  {
+   "id": "api-gateway",
+   "modified_on": "2026-08-13T09:10:00Z",
+   "last_deployed_from": "wrangler"
+  },
+  {
+   "id": "image-resizer",
+   "modified_on": "2026-08-12T18:40:00Z",
+   "last_deployed_from": "wrangler"
+  },
+  {
+   "id": "webhook-relay",
+   "modified_on": "2026-08-01T08:15:00Z",
+   "last_deployed_from": "api"
+  }
+ ],
+ "pages": [
+  {
+   "name": "marketing-site",
+   "id": "p-marketing",
+   "subdomain": "marketing-site.pages.dev",
+   "domains": [
+    "marketing-site.pages.dev",
+    "www.example.com"
+   ],
+   "latest_deployment": {
+    "created_on": "2026-08-13T07:55:00Z",
+    "latest_stage": {
+     "name": "deploy",
+     "status": "success"
+    }
+   }
+  },
+  {
+   "name": "docs",
+   "id": "p-docs",
+   "subdomain": "docs.pages.dev",
+   "domains": [
+    "docs.pages.dev"
+   ],
+   "latest_deployment": {
+    "created_on": "2026-08-12T21:05:00Z",
+    "latest_stage": {
+     "name": "build",
+     "status": "failure"
+    }
+   }
+  }
+ ],
+ "buckets": [
+  {
+   "name": "media-uploads"
+  },
+  {
+   "name": "nightly-backups"
+  }
+ ],
+ "databases": [
+  {
+   "uuid": "db-sessions",
+   "name": "sessions"
+  }
+ ],
+ "namespaces": [
+  {
+   "id": "kv-flags",
+   "title": "feature-flags"
+  }
+ ],
+ "queues": [
+  {
+   "queue_id": "q-email",
+   "queue_name": "email-outbound",
+   "consumers": [
+    {}
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "id": "zone-example-com",
+   "name": "example.com",
+   "status": "active"
+  },
+  {
+   "id": "zone-example-dev",
+   "name": "example.dev",
+   "status": "pending"
+  }
+ ]
+}

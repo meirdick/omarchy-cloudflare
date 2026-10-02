@@ -1,17 +1,11 @@
-// Formatting and row-shaping. Pure functions only — the panel renders whatever
-// the build* functions return and holds no knowledge of Cloudflare's response
-// shapes.
+// Row building and formatting. Pure JavaScript: no Qt, no processes. It runs
+// inside QML and under plain node, where test/ checks it against fixtures.
 //
-// Information architecture, after a first version that rendered all ninety-odd
-// resources as one flat list:
-//
-//   overview   what is broken, what changed, what it is costing, and one
-//              summary row per resource type
-//   type view  everything of one kind, ordered by significance
-//   search     one flat list across every kind, reachable from anywhere
-//
-// The overview never lists individual resources except the ones that are
-// failing or that just deployed. Everything else is a count you drill into.
+// The panel has three views:
+//   overview   what is broken, starred resources, the dashboard figures,
+//              recent deploys, and one row per resource type
+//   type view  all resources of one type, busiest first
+//   search     every resource of every type, from any view
 
 // ---------------------------------------------------------------- formatting
 
@@ -33,8 +27,7 @@ function formatCount(value) {
   return (n / 1000000000).toFixed(1) + "B"
 }
 
-// Coarse on purpose: a deployment list is scanned, not read, so "3d" carries
-// the same information as "3 days ago" in a third of the width.
+// Short on purpose. "3d" says the same as "3 days ago" in less space.
 function relativeTime(thenMs, nowMs) {
   var then = Number(thenMs)
   if (!isFinite(then) || then <= 0) return ""
@@ -51,8 +44,7 @@ function relativeTime(thenMs, nowMs) {
   return Math.floor(months / 12) + "y"
 }
 
-// Grouped digits for the hover text. The row itself shows "128k"; the tooltip
-// is where the real number belongs.
+// Full number with commas, for tooltips. The row shows "128k".
 function formatExact(value) {
   var n = Math.round(Number(value))
   if (!isFinite(n)) return "—"
@@ -68,8 +60,7 @@ function formatExact(value) {
 
 function two(n) { return (n < 10 ? "0" : "") + n }
 
-// "13 Aug 2026, 09:10". Local time, because that is the clock the user is
-// comparing against when they wonder how long ago something shipped.
+// "13 Aug 2026, 09:10", in local time.
 function absoluteTime(ms) {
   var t = Number(ms)
   if (!isFinite(t) || t <= 0) return ""
@@ -87,26 +78,28 @@ function parseTime(value) {
 
 // ---------------------------------------------------------------- glyphs
 
-// Escapes rather than literal characters, and every codepoint checked against
-// JetBrainsMono Nerd Font's cmap: a glyph the family lacks renders as a tofu
-// box or, worse, as an unrelated character that looks deliberate. The first
-// set here did the latter -- they all came out as a guillemet.
+// Written as escapes. Every codepoint was checked against the cmap of
+// JetBrainsMono Nerd Font. A missing glyph draws as a box, or as some other
+// character that looks intended: the first set here all drew as "«".
+var GLYPH_STAR = ""
+var GLYPH_SEARCH = ""
+
 function glyphFor(kind) {
   switch (kind) {
   case "worker": return ""  // bolt
-  case "pages":  return ""  // globe
+  case "pages":  return ""  // code
   case "r2":     return ""  // archive
   case "d1":     return ""  // database
   case "kv":     return ""  // key
   case "queue":  return ""  // inbox
-  case "zone":   return ""  // sitemap
+  case "zone":   return ""  // globe
   case "token":  return ""  // shield
   }
   return ""                 // cloud
 }
 
-// Plural label for a type, used as both the group row's name and the type
-// view's title so the two can never disagree.
+// One name per type, used for the group row and the type view title.
+// Zones are "Domains", as in the current Cloudflare dashboard.
 function typeLabel(kind) {
   switch (kind) {
   case "worker": return "Workers"
@@ -115,25 +108,23 @@ function typeLabel(kind) {
   case "d1":     return "D1 databases"
   case "kv":     return "KV namespaces"
   case "queue":  return "Queues"
-  case "zone":   return "Zones"
+  case "zone":   return "Domains"
   case "token":  return "Create a token"
   }
   return kind
 }
 
-var RESOURCE_KINDS = ["worker", "pages", "r2", "d1", "kv", "queue", "zone"]
+// Dashboard order: domains first, then compute, then storage.
+var RESOURCE_KINDS = ["zone", "worker", "pages", "r2", "d1", "kv", "queue"]
 
 // ---------------------------------------------------------------- live URLs
 
-// The address the thing actually serves on, mirroring what the Cloudflare
-// dashboard prints under each application name.
+// The address a resource serves on, as the dashboard prints it under each
+// application name. A custom domain wins over the platform hostname.
 //
-// A custom domain always wins over the platform hostname: it is what the site
-// is really called, and it is what you would paste to someone.
-//
-// `<name>.<subdomain>.workers.dev` is only offered when the account has told us
-// that script has the subdomain route enabled. Assuming it would hand out dead
-// links — a third of this account's Workers have it switched off.
+// `<name>.<subdomain>.workers.dev` is used only when the account says the
+// script has that route on. Some Workers have it off, and a guessed link
+// would give a 404.
 function workerLiveHost(name, state) {
   var custom = state.workerDomains ? state.workerDomains[name] : ""
   if (custom) return String(custom)
@@ -157,8 +148,8 @@ function hostToUrl(host) {
   return /^https?:\/\//.test(h) ? h : "https://" + h
 }
 
-// Name -> hostname for the two kinds that have deployments, so a deployment row
-// can offer the same link as the resource row it refers to.
+// Name to hostname for Workers and Pages, so a deploy row links to the same
+// site as its resource row.
 function buildLiveHosts(state) {
   var worker = {}
   var pages = {}
@@ -177,46 +168,43 @@ function buildLiveHosts(state) {
 
 // ---------------------------------------------------------------- deployments
 
-// Workers and Pages report deployment state through different shapes. Both are
-// normalized to {name, target, status, whenMs} so the panel sorts one list.
+// Workers and Pages report deploys in different shapes. Both become
+// {name, target, detail, whenMs} so one list can sort them.
 //
-// A Worker's script record carries no build status — only when it last changed
-// — so its status is always "deployed". Pages projects embed the real pipeline
-// stage, which is where a failure actually shows up.
+// A Worker script has no build status, only a change time. Pages projects
+// carry the real build stage, which is where a failure shows.
 function buildDeploys(workers, pages, limit, liveHosts) {
   var rows = []
   var i
 
   for (i = 0; i < workers.length; i++) {
     var w = workers[i]
-    var dhost = liveHosts ? String(liveHosts.worker[String(w.id || "")] || "") : ""
+    var name = String(w.id || "")
+    var host = liveHosts ? String(liveHosts.worker[name] || "") : ""
+    var via = String(w.last_deployed_from || "")
     rows.push({
-      kind: "deploy",
-      target: "worker",
-      name: String(w.id || ""),
-      status: "deployed",
+      kind: "deploy", target: "worker", name: name,
+      detail: "Worker" + (via ? " · " + via : ""),
       failed: false,
-      via: String(w.last_deployed_from || ""),
-      liveHost: dhost, liveUrl: hostToUrl(dhost),
+      liveHost: host, liveUrl: hostToUrl(host),
       whenMs: parseTime(w.modified_on || w.created_on)
     })
   }
 
   for (i = 0; i < pages.length; i++) {
     var p = pages[i]
+    var pname = String(p.name || "")
     var latest = p.latest_deployment
     var stage = latest && latest.latest_stage ? latest.latest_stage : null
-    var status = stage ? String(stage.status || "") : "none"
-    var dphost = liveHosts ? String(liveHosts.pages[String(p.name || "")] || "") : ""
+    var status = stage ? String(stage.status || "") : ""
+    var failed = status === "failure" || status === "canceled"
+    var phost = liveHosts ? String(liveHosts.pages[pname] || "") : ""
     rows.push({
-      kind: "deploy",
-      target: "pages",
-      name: String(p.name || ""),
-      status: status,
-      failed: status === "failure" || status === "canceled",
-      building: status === "active" || status === "idle",
-      via: stage ? String(stage.name || "") : "",
-      liveHost: dphost, liveUrl: hostToUrl(dphost),
+      kind: "deploy", target: "pages", name: pname,
+      detail: "Pages · " + (failed ? (stage.name || "build") + " " + status
+        : (status === "success" || status === "" ? "deployed" : status)),
+      failed: failed,
+      liveHost: phost, liveUrl: hostToUrl(phost),
       whenMs: latest ? parseTime(latest.created_on) : 0
     })
   }
@@ -232,102 +220,292 @@ function failedDeployCount(rows) {
   return n
 }
 
-// ---------------------------------------------------------------- usage
+// ---------------------------------------------------------------- analytics
 
-// A usage row is either metered (has a limit, renders a bar) or a plain
-// readout. Zone traffic has no account-level allowance to divide by, so it is
-// reported as a number rather than a fake percentage.
-function meterRow(id, title, used, limit, detail, tooltip) {
-  var pct = limit > 0 ? used / limit : -1
+var HOUR = 3600000
+
+function emptySeries() {
+  return { now: 0, prev: 0, points: [] }
+}
+
+function emptyAnalytics() {
   return {
-    kind: "usage", id: id, title: title, metered: true,
-    used: used, limit: limit, percent: pct, detail: detail || "",
-    tooltip: tooltip || ""
+    loaded: false,
+    perWorker: {}, perBucket: {}, perDatabase: {}, perZone: {},
+    r2Bytes: 0, r2Objects: 0, d1RowsRead: 0, d1RowsWritten: 0,
+    workersOverErrorRate: 0,
+    series: {
+      requests: emptySeries(), invocations: emptySeries(), errors: emptySeries(),
+      cacheHit: emptySeries(), cpuP90: emptySeries()
+    }
   }
 }
 
-function valueRow(id, title, value, detail, tooltip) {
+function num(value) {
+  var n = Number(value)
+  return isFinite(n) ? n : 0
+}
+
+function list(value) {
+  return Array.isArray(value) ? value : []
+}
+
+// Slot of an hour stamp in the 48-hour window that ends at the last full hour.
+// Slots 0-23 are the previous 24 hours, slots 24-47 the current 24 hours.
+function hourSlot(stamp, windowStartMs) {
+  var t = parseTime(stamp)
+  if (!t) return -1
+  var slot = Math.floor((t - windowStartMs) / HOUR)
+  return slot >= 0 && slot < 48 ? slot : -1
+}
+
+function zeros(n) {
+  var out = []
+  for (var i = 0; i < n; i++) out.push(0)
+  return out
+}
+
+function sumRange(values, from, to) {
+  var s = 0
+  for (var i = from; i < to; i++) s += values[i]
+  return s
+}
+
+// Turns the GraphQL answer from Api.usageQuery into per-resource maps and
+// the six dashboard figures. Pure, so test/ can drive it with a fixture.
+function reduceAnalytics(data, errorRatePercent, nowMs) {
+  var out = emptyAnalytics()
+  out.loaded = true
+
+  var viewer = (data && data.viewer) || {}
+  var account = list(viewer.accounts)[0] || {}
+  var windowStart = Math.floor(num(nowMs) / HOUR) * HOUR - 48 * HOUR
+  var threshold = num(errorRatePercent) || 1
+  var i
+
+  // Per-Worker figures for the current 24 hours.
+  var scripts = list(account.scripts)
+  for (i = 0; i < scripts.length; i++) {
+    var sc = scripts[i]
+    var name = String(sc.dimensions ? sc.dimensions.scriptName : "")
+    var req = num(sc.sum && sc.sum.requests)
+    var err = num(sc.sum && sc.sum.errors)
+    var rate = req > 0 ? (err / req) * 100 : 0
+    out.perWorker[name] = { requests: req, errors: err, errorRate: rate }
+    if (req > 0 && rate >= threshold) out.workersOverErrorRate++
+  }
+
+  // Account-wide Worker totals, hour by hour.
+  var inv = zeros(48)
+  var errs = zeros(48)
+  var cpu = zeros(48)
+  var hourly = list(account.hourly)
+  for (i = 0; i < hourly.length; i++) {
+    var h = hourly[i]
+    var slot = hourSlot(h.dimensions && h.dimensions.datetimeHour, windowStart)
+    if (slot < 0) continue
+    inv[slot] += num(h.sum && h.sum.requests)
+    errs[slot] += num(h.sum && h.sum.errors)
+    cpu[slot] = num(h.quantiles && h.quantiles.cpuTimeP90)
+  }
+  out.series.invocations = { now: sumRange(inv, 24, 48), prev: sumRange(inv, 0, 24), points: inv.slice(24) }
+  out.series.errors = { now: sumRange(errs, 24, 48), prev: sumRange(errs, 0, 24), points: errs.slice(24) }
+  var cpuNow = list(account.cpuNow)[0]
+  var cpuPrev = list(account.cpuPrev)[0]
+  out.series.cpuP90 = {
+    now: num(cpuNow && cpuNow.quantiles && cpuNow.quantiles.cpuTimeP90),
+    prev: num(cpuPrev && cpuPrev.quantiles && cpuPrev.quantiles.cpuTimeP90),
+    points: cpu.slice(24)
+  }
+
+  // R2 reports a running maximum per bucket, so the total is the sum of the
+  // per-bucket maxima, not a sum of rows.
+  var storage = list(account.r2StorageAdaptiveGroups)
+  for (i = 0; i < storage.length; i++) {
+    var st = storage[i]
+    var bucket = String(st.dimensions ? st.dimensions.bucketName : "")
+    var bytes = num(st.max && st.max.payloadSize)
+    var objects = num(st.max && st.max.objectCount)
+    var prior = out.perBucket[bucket]
+    out.perBucket[bucket] = prior
+      ? { bytes: Math.max(prior.bytes, bytes), objects: Math.max(prior.objects, objects) }
+      : { bytes: bytes, objects: objects }
+  }
+  for (var b in out.perBucket) {
+    out.r2Bytes += out.perBucket[b].bytes
+    out.r2Objects += out.perBucket[b].objects
+  }
+
+  var d1 = list(account.d1AnalyticsAdaptiveGroups)
+  for (i = 0; i < d1.length; i++) {
+    var d = d1[i]
+    var dbId = String(d.dimensions ? d.dimensions.databaseId : "")
+    var db = out.perDatabase[dbId] || { rowsRead: 0, rowsWritten: 0 }
+    db.rowsRead += num(d.sum && d.sum.rowsRead)
+    db.rowsWritten += num(d.sum && d.sum.rowsWritten)
+    out.perDatabase[dbId] = db
+    out.d1RowsRead += num(d.sum && d.sum.rowsRead)
+    out.d1RowsWritten += num(d.sum && d.sum.rowsWritten)
+  }
+
+  // Domains, hour by hour, summed across all zones on the account.
+  var zreq = zeros(48)
+  var zcached = zeros(48)
+  var zones = list(viewer.zones)
+  for (i = 0; i < zones.length; i++) {
+    var z = zones[i]
+    var tag = String(z.zoneTag || "")
+    var agg = { requests: 0, bytes: 0, threats: 0 }
+    var groups = list(z.httpRequests1hGroups)
+    for (var g = 0; g < groups.length; g++) {
+      var zs = hourSlot(groups[g].dimensions && groups[g].dimensions.datetime, windowStart)
+      if (zs < 0) continue
+      var sum = groups[g].sum || {}
+      zreq[zs] += num(sum.requests)
+      zcached[zs] += num(sum.cachedRequests)
+      if (zs >= 24) {
+        agg.requests += num(sum.requests)
+        agg.bytes += num(sum.bytes)
+        agg.threats += num(sum.threats)
+      }
+    }
+    out.perZone[tag] = agg
+  }
+  out.series.requests = { now: sumRange(zreq, 24, 48), prev: sumRange(zreq, 0, 24), points: zreq.slice(24) }
+
+  // Cache hit rate by request count. An hour with no requests has no rate.
+  var hit = []
+  for (i = 24; i < 48; i++) hit.push(zreq[i] > 0 ? zcached[i] / zreq[i] : 0)
+  var nowReq = out.series.requests.now
+  var prevReq = out.series.requests.prev
+  out.series.cacheHit = {
+    now: nowReq > 0 ? sumRange(zcached, 24, 48) / nowReq : 0,
+    prev: prevReq > 0 ? sumRange(zcached, 0, 24) / prevReq : 0,
+    points: hit
+  }
+
+  return out
+}
+
+// Change against the previous 24 hours, in percent. Null when there is no
+// earlier figure to compare with.
+function deltaPercent(now, prev) {
+  if (!(prev > 0)) return null
+  return ((now - prev) / prev) * 100
+}
+
+// "↗ 24.5%". Empty for no change, so a flat metric shows no arrow.
+function formatDelta(pct) {
+  if (pct === null || !isFinite(pct)) return ""
+  if (Math.abs(pct) < 0.05) return ""
+  var size = Math.abs(pct)
+  return (pct > 0 ? "↗ " : "↘ ") + (size >= 100 ? Math.round(size) : size.toFixed(1)) + "%"
+}
+
+function formatMs(micros) {
+  var ms = num(micros) / 1000
+  if (ms <= 0) return "0 ms"
+  return (ms < 10 ? ms.toFixed(1) : Math.round(ms)) + " ms"
+}
+
+function formatPercent(ratio) {
+  var p = num(ratio) * 100
+  return (p < 10 ? p.toFixed(2) : p.toFixed(1)) + "%"
+}
+
+// One dashboard figure. `goodWhenUp` sets the colour of the change: more
+// requests is fine, more errors is not.
+function tile(id, title, value, series, goodWhenUp, tooltip) {
+  var pct = series ? deltaPercent(series.now, series.prev) : null
   return {
-    kind: "usage", id: id, title: title, metered: false,
-    value: value, percent: -1, detail: detail || "",
-    tooltip: tooltip || ""
+    id: id, title: title, value: value,
+    delta: formatDelta(pct),
+    worse: pct !== null && Math.abs(pct) >= 0.05 && ((pct > 0) !== goodWhenUp),
+    points: series ? series.points : [],
+    tooltip: tooltip || "", meter: -1, note: ""
   }
 }
 
-// A meter when the user has told us their allowance, a plain readout when they
-// have not. An allowance of 0 means "unset".
-//
-// The defaults used to be the free-tier numbers, which produced a red 143 GB /
-// 10 GB = 1432% bar on a paid account. The figure was right and the
-// denominator was fiction; a percentage against a guessed limit is worse than
-// no percentage, so an unset allowance now shows the number and says how to
-// turn it into a meter.
-// The "set X for a meter" hint lives in the hover text, not in a row of its
-// own. It is a one-time configuration note; giving it permanent space on a
-// panel you read every day was the wrong trade.
-function usageRow(id, title, used, limit, detail, hint, settingKey, unit) {
-  var exact = formatExact(used) + (unit ? " " + unit : "")
-  return limit > 0
-    ? meterRow(id, title, used, limit, detail,
-        exact + " of " + formatExact(limit) + (unit ? " " + unit : "")
-        + " (" + Math.round((used / limit) * 100) + "%)")
-    : valueRow(id, title, used, hint,
-        exact + "  —  set " + settingKey + " in shell.json to show this as a meter")
-}
+// The six figures of the dashboard analytics page, as far as the API allows.
+// "Total requests" there also counts traffic this plugin cannot see, so the
+// tile says "Domain requests" and counts domain traffic only.
+function buildTiles(analytics, limits, counts) {
+  var tiles = []
+  if (!analytics || !analytics.loaded) return tiles
+  var s = analytics.series
+  var c = counts || {}
 
-function buildUsage(analytics, limits) {
-  var rows = []
-  if (!analytics || !analytics.loaded) return rows
-
-  rows.push(usageRow(
-    "worker-requests", "Worker requests, 24h",
-    analytics.workerRequests, limits.workerRequestsPerDay,
-    formatCount(analytics.workerRequests) + " / " + formatCount(limits.workerRequestsPerDay),
-    formatCount(analytics.workerRequests),
-    "workerRequestsPerDay", "requests"))
-
-  var errorPct = analytics.workerRequests > 0
-    ? (analytics.workerErrors / analytics.workerRequests) * 100
-    : 0
-  rows.push(valueRow(
-    "worker-errors", "Worker errors, 24h", analytics.workerErrors,
-    formatCount(analytics.workerErrors) + (analytics.workerRequests > 0 ? "  \u00b7  " + errorPct.toFixed(2) + "%" : ""),
-    formatExact(analytics.workerErrors) + " errors from "
-      + formatExact(analytics.workerRequests) + " requests in the last 24 hours"))
-
-  var storageLimit = limits.r2StorageGb * 1024 * 1024 * 1024
-  rows.push(usageRow(
-    "r2-storage", "R2 storage",
-    analytics.r2Bytes, storageLimit,
-    formatBytes(analytics.r2Bytes) + " / " + limits.r2StorageGb + " GB",
-    formatBytes(analytics.r2Bytes) + "  \u00b7  " + formatCount(analytics.r2Objects) + " objects",
-    "r2StorageGb", "bytes"))
-
-  rows.push(usageRow(
-    "d1-reads", "D1 rows read, 24h",
-    analytics.d1RowsRead, limits.d1RowsReadPerDay,
-    formatCount(analytics.d1RowsRead) + " / " + formatCount(limits.d1RowsReadPerDay),
-    formatCount(analytics.d1RowsRead) + " rows",
-    "d1RowsReadPerDay", "rows"))
-
-  if (analytics.zoneRequests > 0 || analytics.zoneBytes > 0) {
-    rows.push(valueRow(
-      "zone-traffic", "Zone traffic, 7d", analytics.zoneRequests,
-      formatCount(analytics.zoneRequests) + "  \u00b7  " + formatBytes(analytics.zoneBytes)
-        + (analytics.zoneThreats > 0 ? "  \u00b7  " + formatCount(analytics.zoneThreats) + " threats" : ""),
-      formatExact(analytics.zoneRequests) + " requests, " + formatBytes(analytics.zoneBytes)
-        + " served, " + formatExact(analytics.zoneThreats) + " threats blocked, last 7 days"))
+  if (c.zones > 0) {
+    tiles.push(tile("requests", "Domain requests", formatCount(s.requests.now), s.requests, true,
+      formatExact(s.requests.now) + " requests in the last 24 hours, "
+        + formatExact(s.requests.prev) + " the 24 hours before"))
   }
 
-  return rows
+  if (c.workers > 0) {
+    var inv = tile("invocations", "Worker invocations", formatCount(s.invocations.now), s.invocations, true,
+      formatExact(s.invocations.now) + " invocations in the last 24 hours, "
+        + formatExact(s.invocations.prev) + " the 24 hours before")
+    if (limits && limits.workerRequestsPerDay > 0) {
+      inv.meter = s.invocations.now / limits.workerRequestsPerDay
+      inv.tooltip += ". Allowance " + formatExact(limits.workerRequestsPerDay) + " a day"
+    }
+    tiles.push(inv)
+
+    var errTile = tile("errors", "Worker errors", formatCount(s.errors.now), s.errors, false,
+      formatExact(s.errors.now) + " errors in the last 24 hours, "
+        + formatExact(s.errors.prev) + " the 24 hours before")
+    errTile.alarming = s.errors.now > 0
+    tiles.push(errTile)
+  }
+
+  if (c.zones > 0) {
+    tiles.push(tile("cache", "Cache hit rate", formatPercent(s.cacheHit.now), s.cacheHit, true,
+      "Share of domain requests served from cache, by request count"))
+  }
+
+  if (c.workers > 0 && s.cpuP90.now > 0) {
+    tiles.push(tile("cpu", "CPU time P90", formatMs(s.cpuP90.now), s.cpuP90, false,
+      "90% of Worker invocations used less CPU time than this"))
+  }
+
+  if (c.buckets > 0) {
+    var r2 = tile("r2", "R2 storage", formatBytes(analytics.r2Bytes), null, true,
+      formatExact(analytics.r2Bytes) + " bytes in " + formatExact(analytics.r2Objects) + " objects")
+    r2.note = formatCount(analytics.r2Objects) + " objects"
+    if (limits && limits.r2StorageGb > 0) {
+      r2.meter = analytics.r2Bytes / (limits.r2StorageGb * 1073741824)
+      r2.tooltip += ". Allowance " + limits.r2StorageGb + " GB"
+    }
+    tiles.push(r2)
+  }
+
+  // An allowance, when set, turns the figure red at 90%.
+  for (var i = 0; i < tiles.length; i++) if (tiles[i].meter >= 0.9) tiles[i].alarming = true
+  return tiles
+}
+
+// ---------------------------------------------------------------- stars
+
+// A star is stored as "<kind>:<id>". Names can repeat across kinds, ids cannot.
+function starKey(row) {
+  if (!row || RESOURCE_KINDS.indexOf(row.kind) < 0) return ""
+  return row.kind + ":" + String(row.id || row.name || "")
+}
+
+function toggleStar(starred, key) {
+  var out = list(starred).slice()
+  if (!key) return out
+  var at = out.indexOf(key)
+  if (at >= 0) out.splice(at, 1)
+  else out.push(key)
+  return out
 }
 
 // ---------------------------------------------------------------- resources
 
-// Every resource of one kind, normalized to the row shape the panel renders.
-// `weight` is the number the type view sorts by, so the busiest Worker and the
-// biggest bucket come first instead of whatever the API happened to return.
-function resourcesOf(kind, state, analytics) {
+// Every resource of one kind, in the row shape the panel draws. `weight`
+// sorts the type view: the busiest Worker and the largest bucket come first.
+function resourcesOf(kind, state, analytics, starred) {
   var rows = []
   var i
 
@@ -335,19 +513,18 @@ function resourcesOf(kind, state, analytics) {
     for (i = 0; i < state.workers.length; i++) {
       var w = state.workers[i]
       var wname = String(w.id || "")
-      var wstats = analytics.perWorker[wname]
-      var routes = Array.isArray(w.routes) ? w.routes.length : 0
+      var ws = analytics.perWorker[wname]
       var whost = workerLiveHost(wname, state)
+      var wbad = !!(ws && ws.requests > 0 && ws.errorRate >= state.errorRateThreshold)
       rows.push({
         kind: "worker", name: wname, id: wname,
         liveHost: whost, liveUrl: hostToUrl(whost),
-        weight: wstats ? wstats.requests : -1,
-        detail: wstats
-          ? formatCount(wstats.requests) + " req/24h" + (wstats.errors > 0 ? "  ·  " + formatCount(wstats.errors) + " err" : "")
-          : (routes > 0 ? routes + (routes === 1 ? " route" : " routes") : "idle"),
-        alarming: !!(wstats && wstats.errorRate >= state.errorRateThreshold),
-        reason: wstats && wstats.errorRate >= state.errorRateThreshold
-          ? wstats.errorRate.toFixed(1) + "% errors" : ""
+        weight: ws ? ws.requests : -1,
+        detail: ws && ws.requests > 0
+          ? formatCount(ws.requests) + " req/24h" + (ws.errors > 0 ? " · " + formatCount(ws.errors) + " errors" : "")
+          : "idle",
+        alarming: wbad,
+        reason: wbad ? ws.errorRate.toFixed(1) + "% errors" : ""
       })
     }
   } else if (kind === "pages") {
@@ -355,41 +532,40 @@ function resourcesOf(kind, state, analytics) {
       var p = state.pages[i]
       var stage = p.latest_deployment && p.latest_deployment.latest_stage
         ? p.latest_deployment.latest_stage : null
-      var pfailed = !!(stage && (stage.status === "failure" || stage.status === "canceled"))
+      var pbad = !!(stage && (stage.status === "failure" || stage.status === "canceled"))
       var phost = pagesLiveHost(p)
+      var when = p.latest_deployment ? parseTime(p.latest_deployment.created_on) : 0
       rows.push({
-        kind: "pages", name: String(p.name || ""), id: String(p.id || ""),
+        kind: "pages", name: String(p.name || ""), id: String(p.id || p.name || ""),
         liveHost: phost, liveUrl: hostToUrl(phost),
-        weight: p.latest_deployment ? parseTime(p.latest_deployment.created_on) : 0,
-        detail: phost,
-        alarming: pfailed,
-        reason: pfailed ? "last build " + stage.status : ""
+        weight: when,
+        detail: when ? "deployed " + absoluteTime(when) : "no deploys",
+        alarming: pbad,
+        reason: pbad ? "last " + (stage.name || "build") + " " + stage.status : ""
       })
     }
   } else if (kind === "r2") {
     for (i = 0; i < state.buckets.length; i++) {
-      var b = state.buckets[i]
-      var bname = String(b.name || "")
-      var bstats = analytics.perBucket[bname]
+      var bk = state.buckets[i]
+      var bname = String(bk.name || "")
+      var bs = analytics.perBucket[bname]
       rows.push({
         kind: "r2", name: bname, id: bname,
-        weight: bstats ? bstats.bytes : -1,
-        detail: bstats
-          ? formatBytes(bstats.bytes) + "  ·  " + formatCount(bstats.objects) + " objects"
-          : String(b.location || "empty")
+        weight: bs ? bs.bytes : -1,
+        detail: bs ? formatBytes(bs.bytes) + " · " + formatCount(bs.objects) + " objects" : "empty"
       })
     }
   } else if (kind === "d1") {
     for (i = 0; i < state.databases.length; i++) {
-      var d = state.databases[i]
-      var did = String(d.uuid || d.id || "")
-      var dstats = analytics.perDatabase[did]
+      var db = state.databases[i]
+      var did = String(db.uuid || db.id || "")
+      var ds = analytics.perDatabase[did]
       rows.push({
-        kind: "d1", name: String(d.name || ""), id: did,
-        weight: dstats ? dstats.rowsRead : -1,
-        detail: dstats
-          ? formatCount(dstats.rowsRead) + " rows read/24h"
-          : (d.file_size ? formatBytes(d.file_size) : "idle")
+        kind: "d1", name: String(db.name || ""), id: did,
+        weight: ds ? ds.rowsRead : -1,
+        detail: ds && ds.rowsRead > 0
+          ? formatCount(ds.rowsRead) + " rows read/24h"
+          : (db.file_size ? formatBytes(db.file_size) : "idle")
       })
     }
   } else if (kind === "kv") {
@@ -400,7 +576,7 @@ function resourcesOf(kind, state, analytics) {
   } else if (kind === "queue") {
     for (i = 0; i < state.queues.length; i++) {
       var q = state.queues[i]
-      var consumers = Array.isArray(q.consumers) ? q.consumers.length : 0
+      var consumers = list(q.consumers).length
       rows.push({
         kind: "queue", name: String(q.queue_name || q.name || ""), id: String(q.queue_id || q.id || ""),
         weight: consumers,
@@ -411,50 +587,58 @@ function resourcesOf(kind, state, analytics) {
     for (i = 0; i < state.zones.length; i++) {
       var z = state.zones[i]
       var zid = String(z.id || "")
-      var zstats = analytics.perZone[zid]
+      var zs = analytics.perZone[zid]
       var zactive = String(z.status || "") === "active"
       rows.push({
         kind: "zone", name: String(z.name || ""), id: zid,
         liveHost: String(z.name || ""), liveUrl: hostToUrl(z.name),
-        weight: zstats ? zstats.requests : -1,
-        detail: zstats
-          ? formatCount(zstats.requests) + " req/7d  ·  " + formatBytes(zstats.bytes)
+        weight: zs ? zs.requests : -1,
+        detail: zs && zs.requests > 0
+          ? formatCount(zs.requests) + " req/24h · " + formatBytes(zs.bytes)
           : String(z.status || ""),
         alarming: !zactive,
-        reason: zactive ? "" : "zone is " + String(z.status || "inactive")
+        reason: zactive ? "" : "domain is " + String(z.status || "inactive")
       })
     }
   }
 
+  var stars = list(starred)
+  for (i = 0; i < rows.length; i++) rows[i].starred = stars.indexOf(starKey(rows[i])) >= 0
   return rows
 }
 
-function allResources(state, analytics) {
+function allResources(state, analytics, starred) {
   var all = []
   for (var i = 0; i < RESOURCE_KINDS.length; i++)
-    all = all.concat(resourcesOf(RESOURCE_KINDS[i], state, analytics))
+    all = all.concat(resourcesOf(RESOURCE_KINDS[i], state, analytics, starred))
   return all
 }
 
-// Busiest and biggest first, falling back to name so the order is stable
-// between polls when the weights tie (all the idle Workers, every KV namespace).
+// Busiest and largest first. Ties sort by name, so the order stays the same
+// between refreshes.
 function bySignificance(a, b) {
   if (b.weight !== a.weight) return b.weight - a.weight
   return String(a.name).localeCompare(String(b.name))
+}
+
+// Starred first, then by significance.
+function starredFirst(a, b) {
+  if (a.starred !== b.starred) return a.starred ? -1 : 1
+  return bySignificance(a, b)
 }
 
 function matchesFilter(row, filter) {
   if (!filter) return true
   var needle = filter.toLowerCase()
   return String(row.name || "").toLowerCase().indexOf(needle) >= 0
-    || String(row.kind || "").toLowerCase().indexOf(needle) >= 0
-    || String(row.detail || "").toLowerCase().indexOf(needle) >= 0
+    || typeLabel(row.kind).toLowerCase().indexOf(needle) >= 0
+    || String(row.liveHost || "").toLowerCase().indexOf(needle) >= 0
 }
 
 // ---------------------------------------------------------------- flattening
 
-// Section headers are carried on the first row of each group rather than
-// existing as rows of their own, so the cursor can never land on one.
+// The section title is carried on the first row of each group, not on a row of
+// its own, so the cursor never lands on a header.
 function flatten(groups) {
   var rows = []
   for (var g = 0; g < groups.length; g++) {
@@ -473,44 +657,45 @@ function flatten(groups) {
 
 // ---------------------------------------------------------------- overview
 
-// One row per resource type: the count, an aggregate worth knowing, and a
-// marker that there is something behind it. This is the row that replaced
-// seventy individual resources.
-function groupRow(kind, state, analytics) {
-  var rows = resourcesOf(kind, state, analytics)
+// One row per type: the count and one figure worth knowing.
+function groupRow(kind, state, analytics, options) {
+  var rows = resourcesOf(kind, state, analytics, options.starred)
+  var s = analytics.series
   var detail = ""
-  var alarming = 0
+  var bad = 0
   var i
 
-  for (i = 0; i < rows.length; i++) if (rows[i].alarming) alarming++
+  for (i = 0; i < rows.length; i++) if (rows[i].alarming) bad++
 
-  if (kind === "worker") detail = formatCount(analytics.workerRequests) + " req/24h"
+  if (!analytics.loaded) detail = ""
+  else if (kind === "zone") detail = formatCount(s.requests.now) + " req/24h"
+  else if (kind === "worker") detail = formatCount(s.invocations.now) + " invocations/24h"
   else if (kind === "r2") detail = formatBytes(analytics.r2Bytes)
-  else if (kind === "d1") detail = formatCount(analytics.d1RowsRead) + " rows/24h"
-  else if (kind === "zone") detail = formatCount(analytics.zoneRequests) + " req/7d"
-  else if (kind === "queue") {
+  else if (kind === "d1") {
+    var allowance = options.limits ? options.limits.d1RowsReadPerDay : 0
+    detail = formatCount(analytics.d1RowsRead) + (allowance > 0 ? " / " + formatCount(allowance) : "") + " rows read/24h"
+  } else if (kind === "queue") {
     var consumers = 0
-    for (i = 0; i < rows.length; i++) consumers += Number(rows[i].weight) || 0
+    for (i = 0; i < rows.length; i++) consumers += num(rows[i].weight)
     detail = consumers + (consumers === 1 ? " consumer" : " consumers")
   }
 
-  if (alarming > 0) detail = alarming + (alarming === 1 ? " needs attention" : " need attention")
+  if (bad > 0) detail = bad + (bad === 1 ? " needs attention" : " need attention")
 
   return {
     kind: "group", target: kind, name: typeLabel(kind),
-    count: rows.length, detail: detail, alarming: alarming > 0
+    count: rows.length, detail: detail, alarming: bad > 0
   }
 }
 
 function buildOverview(state, analytics, options) {
   var groups = []
+  var everything = allResources(state, analytics, options.starred)
   var i
 
-  // Anything failing, listed by name. This is the only place the overview
-  // names individual resources, because a count of broken things is not
-  // actionable and the name is.
+  // Anything failing, by name: a count of broken things does not say what
+  // to fix.
   var attention = []
-  var everything = allResources(state, analytics)
   for (i = 0; i < everything.length; i++) {
     if (!everything[i].alarming) continue
     var row = everything[i]
@@ -520,27 +705,44 @@ function buildOverview(state, analytics, options) {
   attention.sort(bySignificance)
   groups.push({ title: "NEEDS ATTENTION", rows: attention })
 
-  // Recent activity, trimmed hard. Eight deployments was a list; three is a
-  // glance, and the rest are one keypress away under Workers or Pages.
-  groups.push({
-    title: "RECENT ACTIVITY",
-    rows: buildDeploys(state.workers, state.pages, options.overviewDeployRows, buildLiveHosts(state))
-  })
+  // Starred resources, in the order they were starred.
+  var stars = list(options.starred)
+  var starredRows = []
+  for (i = 0; i < stars.length; i++) {
+    for (var j = 0; j < everything.length; j++) {
+      if (starKey(everything[j]) !== stars[i]) continue
+      if (!everything[j].alarming) starredRows.push(everything[j])
+      break
+    }
+  }
+  groups.push({ title: "STARRED", rows: starredRows })
 
-  groups.push({ title: "USAGE", rows: buildUsage(analytics, options.limits) })
-
+  // Resource types come before the figures, as on the dashboard home page:
+  // they are what you navigate by.
   var typeRows = []
   for (i = 0; i < RESOURCE_KINDS.length; i++) {
-    var group = groupRow(RESOURCE_KINDS[i], state, analytics)
+    var group = groupRow(RESOURCE_KINDS[i], state, analytics, options)
     if (group.count > 0) typeRows.push(group)
   }
   groups.push({ title: "RESOURCES", rows: typeRows })
 
+  // The dashboard figures, as one row of tiles.
+  var tiles = buildTiles(analytics, options.limits, {
+    zones: state.zones.length, workers: state.workers.length, buckets: state.buckets.length
+  })
+  if (tiles.length > 0)
+    groups.push({ title: "ANALYTICS \u00b7 24H", rows: [{ kind: "tiles", tiles: tiles, selectable: false }] })
+
   groups.push({
-    title: "",
+    title: "RECENT DEPLOYS",
+    rows: buildDeploys(state.workers, state.pages, options.overviewDeployRows, buildLiveHosts(state))
+  })
+
+  groups.push({
+    title: "SHORTCUTS",
     rows: [{
       kind: "group", target: "token", name: typeLabel("token"),
-      count: options.tokenRows.length,
+      count: list(options.tokenRows).length,
       detail: "account, user, R2, AI Gateway, Turnstile", alarming: false
     }]
   })
@@ -552,24 +754,22 @@ function buildOverview(state, analytics, options) {
 
 function buildTypeView(kind, state, analytics, options) {
   if (kind === "token")
-    return flatten([{ title: "CREATE A TOKEN", rows: options.tokenRows.slice() }])
+    return flatten([{ title: "CREATE A TOKEN", rows: list(options.tokenRows).slice() }])
 
-  var rows = resourcesOf(kind, state, analytics)
-  rows.sort(bySignificance)
+  var rows = resourcesOf(kind, state, analytics, options.starred)
+  rows.sort(starredFirst)
   return flatten([{ title: typeLabel(kind).toUpperCase(), rows: rows }])
 }
 
 // ---------------------------------------------------------------- search
 
-// Search reaches every resource from anywhere, which is what keeps the
-// drill-down from becoming a maze: you never have to know which type something
-// is in to get to it.
+// Search covers every resource of every type, from any view.
 function buildSearch(state, analytics, options) {
   var matched = []
-  var everything = allResources(state, analytics)
+  var everything = allResources(state, analytics, options.starred)
   for (var i = 0; i < everything.length; i++)
     if (matchesFilter(everything[i], options.filter)) matched.push(everything[i])
-  matched.sort(bySignificance)
+  matched.sort(starredFirst)
 
   if (matched.length === 0) {
     return flatten([{
@@ -577,7 +777,7 @@ function buildSearch(state, analytics, options) {
       rows: [{ kind: "empty", name: "Nothing matches “" + options.filter + "”", selectable: false }]
     }])
   }
-  return flatten([{ title: matched.length + " MATCHES", rows: matched }])
+  return flatten([{ title: matched.length + (matched.length === 1 ? " MATCH" : " MATCHES"), rows: matched }])
 }
 
 // ---------------------------------------------------------------- entry point
@@ -588,9 +788,30 @@ function buildRows(state, analytics, options) {
   return buildOverview(state, analytics, options)
 }
 
-// Section boundaries, for jumps across a long list.
-function sectionStarts(rows) {
-  var starts = []
-  for (var i = 0; i < rows.length; i++) if (rows[i].sectionTitle !== "") starts.push(i)
-  return starts
+if (typeof module !== "undefined") {
+  module.exports = {
+    GLYPH_STAR: GLYPH_STAR,
+    GLYPH_SEARCH: GLYPH_SEARCH,
+    RESOURCE_KINDS: RESOURCE_KINDS,
+    formatBytes: formatBytes,
+    formatCount: formatCount,
+    formatExact: formatExact,
+    formatDelta: formatDelta,
+    relativeTime: relativeTime,
+    absoluteTime: absoluteTime,
+    glyphFor: glyphFor,
+    typeLabel: typeLabel,
+    workerLiveHost: workerLiveHost,
+    pagesLiveHost: pagesLiveHost,
+    buildDeploys: buildDeploys,
+    failedDeployCount: failedDeployCount,
+    emptyAnalytics: emptyAnalytics,
+    reduceAnalytics: reduceAnalytics,
+    deltaPercent: deltaPercent,
+    buildTiles: buildTiles,
+    starKey: starKey,
+    toggleStar: toggleStar,
+    resourcesOf: resourcesOf,
+    buildRows: buildRows
+  }
 }
